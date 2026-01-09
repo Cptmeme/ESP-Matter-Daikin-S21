@@ -15,7 +15,7 @@ ESP32 project to get matter to work with my Daikin A/C with a S21 port.
 Code copied or inspiration taken from:
 
 - https://github.com/espressif/esp-matter (copied example code for A/C)
-- https://github.com/revk/ESP32-Faikin (taken s21 protocol files)
+- https://github.com/revk/ESP32-Faikout (taken s21 protocol files and based my custom board off of the faikout boards)
 - https://github.com/asund/esphome-daikin-s21 (inspiration)
 
 ## Custom PCB
