@@ -25,6 +25,7 @@ using namespace esp_matter;
 
 static const char *TAG = "app_driver";
 extern uint16_t thermostat_endpoint_id;
+extern uint16_t powerful_endpoint_id;
 static DaikinS21 s21;
 
 // Global Temperature Storage
@@ -101,6 +102,11 @@ static void AppDriverUpdateTask(intptr_t context)
     esp_matter::attribute::report(thermostat_endpoint_id, Thermostat::Id, Thermostat::Attributes::ThermostatRunningState::Id, &val);
     // ------------------------------------------------
 
+    if (powerful_endpoint_id != 0) {
+        esp_matter_attr_val_t pow_val = esp_matter_bool(data->state.powerful);
+        esp_matter::attribute::report(powerful_endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id, &pow_val);
+    }
+
     free(data);
 }
 
@@ -155,6 +161,14 @@ esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_
     if (endpoint_id == thermostat_endpoint_id && cluster_id == Thermostat::Id) {
         return app_driver_thermostat_set_value(driver_handle, val, attribute_id);
     }
+    
+    else if (endpoint_id == powerful_endpoint_id && cluster_id == OnOff::Id) {
+        if (attribute_id == OnOff::Attributes::OnOff::Id) {
+            ESP_LOGI(TAG, "Setting Powerful Mode to: %d", val->val.b);
+            s21.SetPowerful(val->val.b);
+        }
+    }
+
     return ESP_OK;
 }
 

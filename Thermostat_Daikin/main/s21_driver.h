@@ -13,6 +13,7 @@ typedef struct {
     float current_temp;  // Celsius (Room temp)
     float outside_temp;  // Celsius
     uint8_t fan_speed;   // Uses FAIKIN_FAN_* enums
+    bool powerful;
 } ac_state_t;
 
 // Callback function type
@@ -39,6 +40,7 @@ public:
     void SetMode(uint8_t mode);
     void SetTemp(float temp);
     void SetFan(uint8_t fan);
+    void SetPowerful(bool on);
 
     // Register a callback to update Matter attributes when AC changes
     void SetStateCallback(s21_state_change_cb_t cb);
@@ -49,13 +51,16 @@ public:
 private:
     ac_state_t m_state;
     bool m_dirty;
+    bool m_powerful_dirty;
     s21_state_change_cb_t m_callback;
 
     // Internal helpers
     esp_err_t SendPacket(uint8_t cmd1, uint8_t cmd2, uint8_t *payload, int len);
     void ParseStatusG1(uint8_t *payload, int len);
+    void ParseSettingsG6(uint8_t *payload, int len);
     void ParseSensorsGH(uint8_t *payload, int len);
     void ParseSensorsG9(uint8_t *payload, int len);
     void ParseSensorsSH(uint8_t *payload, int len); // <--- ADD THIS LINE
     void SendControlD1();
+    void SendControlD6();
 };

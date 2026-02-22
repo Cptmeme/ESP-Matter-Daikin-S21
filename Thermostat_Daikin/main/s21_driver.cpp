@@ -56,12 +56,14 @@ static int sw_read_byte(uint32_t timeout_ms) {
 
 DaikinS21::DaikinS21() {
     m_dirty = false;
+    m_powerful_dirty = false;
     m_callback = nullptr;
     m_state.power = false;
     m_state.mode = FAIKIN_MODE_AUTO;
     m_state.target_temp = 22.0;
     m_state.fan_speed = FAIKIN_FAN_AUTO;
     m_state.current_temp = 21.0;
+    m_state.powerful = false;
 }
 
 esp_err_t DaikinS21::Init(int tx_pin, int rx_pin) {
@@ -132,6 +134,9 @@ esp_err_t DaikinS21::SendPacket(uint8_t cmd1, uint8_t cmd2, uint8_t *payload, in
             else if (rx_buf[1] == 'S' && rx_buf[2] == 'H') {
                  ParseSensorsSH(&rx_buf[3], rx_idx - 5);
             }
+            else if (rx_buf[1] == 'G' && rx_buf[2] == '6') {
+                 ParseSettingsG6(&rx_buf[3], rx_idx - 5);
+            }
         }
     }
     return ESP_OK;
@@ -164,6 +169,37 @@ void DaikinS21::ParseStatusG1(uint8_t *payload, int len) {
     m_state.target_temp = t;
 
     if (changed && m_callback) m_callback(&m_state);
+}
+
+void DaikinS21::ParseSettingsG6(uint8_t *payload, int len) {
+    if (len < 4) return;
+    
+    // Check the powerful bit (0x02) on the first payload byte
+    bool pow = (payload[0] & S21_FLAG_POWERFUL) != 0;
+    
+    if (m_state.powerful != pow) {
+        ESP_LOGI(TAG, "Powerful Mode Change Detected! Powerful:%d", pow);
+        m_state.powerful = pow;
+        if (m_callback) m_callback(&m_state);
+    }
+}
+
+void DaikinS21::SendControlD6() {
+    uint8_t payload[4];
+    
+    // Byte 0: Base '0' + Powerful (0x02) + Comfort (0x40) + Quiet (0x80)
+    payload[0] = S21_D6_BASE_BYTE;
+    if (m_state.powerful) payload[0] += S21_FLAG_POWERFUL;
+    
+    // Bytes 1-3: Default to '0' (Unless you implement streamer/sensor/led later)
+    payload[1] = S21_D6_BASE_BYTE;
+    payload[2] = S21_D6_BASE_BYTE;
+    payload[3] = S21_D6_BASE_BYTE;
+
+    SendPacket('D', '6', payload, 4);
+    
+    // Clear the dirty flag specific to the powerful state
+    m_powerful_dirty = false; 
 }
 
 void DaikinS21::ParseSensorsSH(uint8_t *payload, int len) {
@@ -212,9 +248,17 @@ void DaikinS21::Poll() {
         SendControlD1();
         vTaskDelay(pdMS_TO_TICKS(500));
     }
+
+    if (m_powerful_dirty) {
+        SendControlD6();
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
     
     // Poll Status (F1 -> G1)
     SendPacket('F', '1', NULL, 0);
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    SendPacket('F', '6', NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(500));
     
     // Poll Sensor (RH -> SH)
@@ -227,3 +271,9 @@ void DaikinS21::SetMode(uint8_t mode) { if(m_state.mode != mode) { m_state.mode 
 void DaikinS21::SetTemp(float temp) { if(fabs(m_state.target_temp - temp) > 0.1) { m_state.target_temp = temp; m_dirty = true; } }
 void DaikinS21::SetFan(uint8_t fan) { m_state.fan_speed = fan; m_dirty = true; }
 void DaikinS21::SetStateCallback(s21_state_change_cb_t cb) { m_callback = cb; }
+void DaikinS21::SetPowerful(bool on) { 
+    if(m_state.powerful != on) { 
+        m_state.powerful = on; 
+        m_powerful_dirty = true;
+    } 
+}

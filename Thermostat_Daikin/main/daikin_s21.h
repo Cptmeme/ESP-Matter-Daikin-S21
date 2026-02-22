@@ -49,6 +49,13 @@
 #define AC_FAN_4     '6'
 #define AC_FAN_5     '7'
 
+// S21 G6/D6 Payload Bitmasks
+#define S21_D6_BASE_BYTE      '0'   // 0x30
+#define S21_FLAG_POWERFUL     0x02
+#define S21_FLAG_COMFORT      0x40
+#define S21_FLAG_QUIET        0x80
+#define S21_FLAG_STREAMER     0x80  // Note: This is on payload[1]
+
 // Calculate packet checksum
 static inline uint8_t
 s21_checksum (uint8_t * buf, int len)
