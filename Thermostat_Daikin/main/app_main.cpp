@@ -197,7 +197,7 @@ extern "C" void app_main()
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
     esp_matter::endpoint::thermostat::config_t thermostat_config = {};
-    thermostat_config.thermostat.feature_flags = 7; // Heat/Cool/Auto
+    thermostat_config.thermostat.feature_flags = 35; // Heat/Cool/Auto
     //thermostat_config.thermostat.system_mode = 0;
     thermostat_config.thermostat.control_sequence_of_operation = 4;
 

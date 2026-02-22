@@ -116,19 +116,35 @@ static void s21_state_change_callback(const ac_state_t *state)
 
 static esp_err_t app_driver_thermostat_set_value(void *handle, esp_matter_attr_val_t *val, uint32_t attribute_id)
 {
+    // Get current state to check power status
+    ac_state_t current = s21.GetState();
+
     if (attribute_id == Thermostat::Attributes::SystemMode::Id) {
         uint8_t mode = val->val.u8;
-        ac_state_t current = s21.GetState();
-        switch (mode) {
-            case 0: s21.SetPower(false); break; 
-            case 1: if (!current.power) s21.SetPower(true); s21.SetMode(FAIKIN_MODE_AUTO); break;
-            case 3: if (!current.power) s21.SetPower(true); s21.SetMode(FAIKIN_MODE_COOL); break;
-            case 4: if (!current.power) s21.SetPower(true); s21.SetMode(FAIKIN_MODE_HEAT); break;
+        
+        if (mode == 0) {
+            // CASE: OFF
+            // Explicitly set power off. 
+            s21.SetPower(false);
+        } else {
+            // CASE: AUTO/COOL/HEAT
+            if (!current.power) {
+                s21.SetPower(true);
+            }
+            
+            if (mode == 1) s21.SetMode(FAIKIN_MODE_AUTO);
+            else if (mode == 3) s21.SetMode(FAIKIN_MODE_COOL);
+            else if (mode == 4) s21.SetMode(FAIKIN_MODE_HEAT);
         }
     }
     else if (attribute_id == Thermostat::Attributes::OccupiedCoolingSetpoint::Id || 
              attribute_id == Thermostat::Attributes::OccupiedHeatingSetpoint::Id) {
-        s21.SetTemp(MATTER_TO_FLOAT(val->val.i16));
+        
+        if (current.power) {
+            s21.SetTemp(MATTER_TO_FLOAT(val->val.i16));
+        } else {
+            ESP_LOGI(TAG, "Ignored SetTemp because device is OFF");
+        }
     }
     return ESP_OK;
 }
