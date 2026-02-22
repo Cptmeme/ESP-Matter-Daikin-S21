@@ -4,14 +4,13 @@ ESP32 project to get matter to work with my Daikin A/C with a S21 port.
 
 ## Firmware
 
-- Heating/cooling supported.
+- Heating/cooling/auto mode supported.
 - Still some bugs to iron out but basic functionality now works!
 - Has been tested to work with the custom PCB provided in this repo connected to a Daikin FTXM25R5V1B
 
 ### TODO
-- Fix Auto Mode
 - Add external temperatures
-- Add powerful/eco mode (map as fanspeed?)
+- Add powerful
 
 ### Sources
 
