@@ -68,12 +68,13 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 | Ecosystem | Tested |
 |-----------|--------|
-| Apple Home | ✅ (no fan speed control)|
+| Apple Home | ✅ (no fan speed control)*|
 | Google Home | ✅ (no fan speed control on IOS)|
 | Alexa | Untested |
 | Home Assistant | ✅ |
 | SmartThings | Untested |
 
+*Fan speed can be controlled through the Eve app
 ---
 
 ## Hardware
