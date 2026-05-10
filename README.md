@@ -5,7 +5,7 @@
 
 > **⚠️ Disclaimer.** Connecting custom hardware to your air conditioner can damage the unit, the controller board, or the ESP32. Incorrect wiring can short-circuit the S21 bus, brick the indoor unit's PCB, or cause the unit to behave unpredictably. Always disconnect mains power to the AC before opening it. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, or Espressif Systems.
 
-Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no subscription, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
+Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
