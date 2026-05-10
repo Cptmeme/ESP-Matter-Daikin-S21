@@ -64,17 +64,6 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 > **Requires a Thread Border Router.** A Thread Border Router is required for any Matter-over-Thread device. See the table below for tested and supported options.
 
-| Hub | Thread Border Router | Tested |
-|-----|---------------------|--------|
-| Apple HomePod mini | ✅ | ✅ |
-| Apple HomePod (2nd gen) | ✅ | Untested |
-| Apple TV 4K (3rd gen) | ✅ | Untested |
-| iPhone 15 Pro+ / 16 Pro+ / 17 Pro+ | ✅ | ✅ |
-| Google Nest Hub (2nd gen) | ✅ | Untested |
-| Home Assistant (SkyConnect / Yellow) | ✅ | ✅ |
-| Amazon Echo (4th gen) | ✅ | Untested |
-| SmartThings Station / Hub V3 | ✅ | ⚠️ partial — see notes |
-
 > **SmartThings note.** SmartThings recognizes the device as a Room Air Conditioner and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or HA if you need Powerful.
 
 ---
