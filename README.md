@@ -1,8 +1,6 @@
 # Daikin S21 — Matter over Thread
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-[![Release](https://img.shields.io/github/v/release/cptmeme/ESP-Matter-Daikin-S21)](../../releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/cptmeme/ESP-Matter-Daikin-S21/total)](../../releases)
 [![Stars](https://img.shields.io/github/stars/cptmeme/ESP-Matter-Daikin-S21?style=social)](../../stargazers)
 
 > **⚠️ Disclaimer.** Connecting custom hardware to your air conditioner can damage the unit, the controller board, or the ESP32. Incorrect wiring can short-circuit the S21 bus, brick the indoor unit's PCB, or cause the unit to behave unpredictably. Always disconnect mains power to the AC before opening it. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, or Espressif Systems.
