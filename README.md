@@ -5,13 +5,11 @@
 
 > **⚠️ Disclaimer.** Opening your air conditioner exposes you to mains voltage and can damage the unit. Always disconnect mains power at the breaker before opening the indoor unit. Incorrect wiring on the S21 bus can damage the AC's controller board or the ESP32. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, Espressif Systems, or RevK / the Faikin/Faikout project.
 
-Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no subscription, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
+Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
 > **Powerful mode** is exposed on a second endpoint as an OnOff plug-in unit. In Apple Home and Google Home it appears as an "Outlet" tile next to the AC tile — rename it to "Powerful" in your home app.
->
-> **Quiet mode is intentionally not exposed.** Matter has no native concept that maps to Daikin's Quiet (which limits both compressor and fan), so adding it as a separate endpoint would be misleading. Use the AC's remote for Quiet, or contribute a PR if you want to plumb it.
 
 > ⚠️ Uses ESP-Matter SDK test credentials (vendor `0xFFF1`, not VID/PID-certified). Functional for personal use; not suitable for resale as a certified Matter product.
 
@@ -51,7 +49,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 ## Features
 
 - ✅ Matter over Thread — uses the ESP32-C6's 802.15.4 radio, no WiFi required
-- ✅ Compatible with Apple Home, Google Home, Alexa, Home Assistant
+- ✅ Compatible with Apple Home, Google Home, Alexa, Home Assistant, etc.
 - ✅ Multi-fabric — commission to multiple hubs simultaneously
 - ✅ Native Room Air Conditioner tile (single accessory in your home app)
 - ✅ Power, Mode (Heat/Cool/Auto/Off), Setpoint, Current Temperature
@@ -60,7 +58,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 - ✅ Two-way state sync — adjusting on the Daikin remote updates your home app within ~2 seconds
 - ✅ Factory reset via long press on the onboard button
 
-> **Fan speed visibility note:** Apple Home and Google Home currently *do not render* the fan slider on their AC tile, even when the firmware correctly advertises it. Home Assistant shows it. This is a controller-side UI limitation, not a firmware bug — the FanControl cluster is correctly registered and writable from any Matter controller that chooses to surface it (e.g. via Apple Shortcuts).
+> **Fan speed visibility note:** Apple Home and Google Home (on IOS) currently *do not render* the fan slider on their AC tile, even when the firmware correctly advertises it. Home Assistant shows it. This is a controller-side UI limitation, not a firmware bug — the FanControl cluster is correctly registered and writable from any Matter controller that chooses to surface it.
 
 ---
 
@@ -73,14 +71,10 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 | Apple HomePod mini (gen 1) | Apple Home | ✅ |
 | Apple HomePod (2nd gen) | Apple Home | Untested |
 | Apple TV 4K (3rd gen) | Apple Home | ✅ |
-| Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | Untested |
+| Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | ✅ |
 | Amazon Echo (4th gen) / Echo Hub | Alexa | Untested |
-| Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | Untested |
+| Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | ✅ |
 | Aeotec / SmartThings Station / Hub v3 | SmartThings | Untested |
-
-> Apple iPhones (15 Pro and later) include a Thread radio but, as far as I'm aware, Apple has not enabled them as Thread Border Routers — they act as commissioners only. You still need a HomePod or Apple TV in your network to actually run the Thread mesh. **Tested commissioner: iPhone 17 Pro Max** — works fine for the BLE pairing and ongoing control via the Home app.
-
-> **SmartThings note.** SmartThings recognizes Matter Room Air Conditioner devices and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or Home Assistant if you need Powerful.
 
 ---
 
@@ -159,7 +153,7 @@ If you're using a board where the buttons or LEDs are on different pins than the
 
 ## Building & Flashing
 
-> **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source. Sorry — but it's unavoidable until somebody adds runtime pin configuration via Kconfig or the Matter UserLabel cluster.
+> **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source.
 
 ### 1. Install ESP-IDF and ESP-Matter
 
@@ -197,7 +191,7 @@ idf.py -p <PORT> flash monitor
 
 Replace `<PORT>` with your serial port (`/dev/cu.usbserial-XXXX` on macOS, `/dev/ttyUSB0` on Linux, `COM3` on Windows).
 
-> ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified HVAC technician install the interface board for you and just plug into the S21 connector once it's accessible.
+> ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified technician install the cable for you and just plug into the S21 connector once it's accessible.
 
 ### 4. Verify the firmware is running
 
@@ -256,13 +250,8 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 ---
 
 ## Known Issues / Roadmap
-
-- [ ] **Quiet mode** — not currently exposed to Matter. Could be added as a third endpoint (similar to Powerful), but Matter has no native concept that cleanly represents it. PRs welcome.
-- [ ] **Fan slider in Apple Home / Google Home** — both controllers' AC tiles omit the fan slider. Workaround would be exposing fan as a separate `Fan` device type (`0x002B`) endpoint, at the cost of a third tile in those apps. Not implemented yet.
-- [ ] **Outside temperature** — the S21 protocol exposes outside-coil temperature; not currently mirrored to a Matter cluster. Could be added as a second TemperatureMeasurement endpoint.
 - [ ] **Swing / louver position** — the S21 protocol supports it; no Matter wiring yet.
-- [ ] **Energy reporting** — Matter 1.3 added Power and Energy clusters, supported in some controllers (HA). The Daikin S21 protocol does not expose energy data, so this would require external metering.
-- [ ] **Configurable fan-speed mapping** — currently Matter Low/Med/High maps to S21 speeds 1/3/5. A Kconfig option for finer granularity (e.g. Low=2, High=4) could be useful for some users.
+- [ ] **Energy reporting** — Matter 1.3 added Power and Energy clusters, supported in some controllers (HA).
 
 ---
 
@@ -284,7 +273,7 @@ Apple Home, Google Home, and Alexa display these in the device's settings page. 
 
 GPL v2 — see [LICENSE](../LICENSE)
 
-The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by Adrian Kennard, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
+The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
 ---
 
