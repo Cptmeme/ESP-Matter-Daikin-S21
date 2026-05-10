@@ -39,7 +39,7 @@ using namespace chip::DeviceLayer;
 #include <app/util/attribute-storage.h>
 
 static const char *TAG = "app_main";
-uint16_t thermostat_endpoint_id = 0;
+uint16_t ac_endpoint_id = 0;
 uint16_t powerful_endpoint_id = 0;
 
 // Extern the global variable from app_driver.cpp
@@ -197,26 +197,44 @@ extern "C" void app_main()
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
-    esp_matter::endpoint::thermostat::config_t thermostat_config = {};
-    thermostat_config.thermostat.feature_flags = 35; // Heat/Cool/Auto
-    //thermostat_config.thermostat.system_mode = 0;
-    thermostat_config.thermostat.control_sequence_of_operation = 4;
+    // Room Air Conditioner endpoint (Matter device type 0x0072).
+    // Bundles OnOff + Thermostat; Fan Control and Temperature Measurement added below.
+    esp_matter::endpoint::room_air_conditioner::config_t ac_config;
+    ac_config.on_off.on_off = false;
+    ac_config.thermostat.feature_flags = 35; // Heat/Cool/Auto
+    ac_config.thermostat.control_sequence_of_operation = 4;
 
-    endpoint_t *endpoint = esp_matter::endpoint::thermostat::create(node, &thermostat_config, ENDPOINT_FLAG_NONE, thermostat_handle);
-    ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create thermostat endpoint"));
+    endpoint_t *endpoint = esp_matter::endpoint::room_air_conditioner::create(node, &ac_config, ENDPOINT_FLAG_NONE, thermostat_handle);
+    ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create room air conditioner endpoint"));
 
-    thermostat_endpoint_id = endpoint::get_id(endpoint);
-    ESP_LOGI(TAG, "Thermostat created with endpoint_id %d", thermostat_endpoint_id);
+    ac_endpoint_id = endpoint::get_id(endpoint);
+    ESP_LOGI(TAG, "Room Air Conditioner created with endpoint_id %d", ac_endpoint_id);
+
+    esp_matter::cluster::fan_control::config_t fan_config;
+    fan_config.fan_mode = 5; // Auto
+    fan_config.fan_mode_sequence = 2; // OffLowMedHighAuto
+    esp_matter::cluster_t *fan_cluster = esp_matter::cluster::fan_control::create(endpoint, &fan_config, CLUSTER_FLAG_SERVER);
+    ABORT_APP_ON_FAILURE(fan_cluster != nullptr, ESP_LOGE(TAG, "Failed to create fan control cluster"));
+    esp_matter::cluster::fan_control::feature::fan_auto::add(fan_cluster);
+
+    esp_matter::cluster::temperature_measurement::config_t temp_config;
+    esp_matter::cluster_t *temp_cluster = esp_matter::cluster::temperature_measurement::create(endpoint, &temp_config, CLUSTER_FLAG_SERVER);
+    ABORT_APP_ON_FAILURE(temp_cluster != nullptr, ESP_LOGE(TAG, "Failed to create temperature measurement cluster"));
 
     esp_matter::endpoint::on_off_plug_in_unit::config_t powerful_config;
-    powerful_config.on_off.on_off = false; // Default state
-
-    // Create the plug_in unit, passing the thermostat_handle so it routes to the same app_driver_attribute_update callback
+    powerful_config.on_off.on_off = false;
     endpoint_t *powerful_ep = esp_matter::endpoint::on_off_plug_in_unit::create(node, &powerful_config, ENDPOINT_FLAG_NONE, thermostat_handle);
     ABORT_APP_ON_FAILURE(powerful_ep != nullptr, ESP_LOGE(TAG, "Failed to create powerful endpoint"));
-
     powerful_endpoint_id = endpoint::get_id(powerful_ep);
-    ESP_LOGI(TAG, "Powerful plug_in unit created with endpoint_id %d", powerful_endpoint_id);
+    ESP_LOGI(TAG, "Powerful plug-in unit created with endpoint_id %u", powerful_endpoint_id);
+
+    {
+        ESP_LOGI(TAG, "=== Endpoint %u clusters ===", ac_endpoint_id);
+        for (esp_matter::cluster_t *c = esp_matter::cluster::get_first(endpoint); c != nullptr; c = esp_matter::cluster::get_next(c)) {
+            ESP_LOGI(TAG, "  cluster 0x%04lx", (unsigned long)esp_matter::cluster::get_id(c));
+        }
+        ESP_LOGI(TAG, "===========================");
+    }
 
     // --- MANUALLY REGISTER ATTRIBUTES ---
     esp_matter::cluster_t *cluster = esp_matter::cluster::get(endpoint, Thermostat::Id);
@@ -272,7 +290,7 @@ extern "C" void app_main()
     err = esp_matter::start(app_event_cb);
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
 
-    app_driver_thermostat_set_defaults(thermostat_endpoint_id);
+    app_driver_thermostat_set_defaults(ac_endpoint_id);
     
 #if CONFIG_ENABLE_ENCRYPTED_OTA
     err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);
