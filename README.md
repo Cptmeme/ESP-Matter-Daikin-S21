@@ -74,7 +74,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 | Home Assistant | ✅ |
 | SmartThings | Untested |
 
-*Fan speed can be controlled through the Eve app
+>*Fan speed can be controlled through the Eve app
 ---
 
 ## Hardware
