@@ -225,13 +225,9 @@ This confirms Matter is initialized and the device is advertising for commission
 
 ### Apple Home
 
-Scan this QR code with the Home app, or enter the setup code manually:
-
-![Matter Setup QR Code](docs/images/matter_qrcode_20202021_3840.png)
-
 1. Open the **Home** app.
 2. Tap **+** → **Add Accessory**.
-3. Scan the QR code above, or tap **More Options** to enter the setup code manually.
+3. Tap **More Options** to enter the setup code manually.
 4. Press **Add Anyway** when prompted (this is expected — see [Matter and Thread Certification](#matter-and-thread-certification)).
 5. Name the device and place it in a room. You'll see two tiles: the AC and the "Outlet" (Powerful). Rename the Outlet to "Powerful" or similar.
 
