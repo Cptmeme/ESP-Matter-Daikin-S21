@@ -40,7 +40,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 1. Install ESP-IDF and ESP-Matter — follow Espressif's [Getting the Repositories](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html) guide.
 2. Connect your interface board to the Daikin's S21 port — see [Hardware](#hardware).
-3. Edit the GPIO pin defines in [`main/app_driver.cpp`](main/app_driver.cpp) to match your wiring (see [Pin configuration](#pin-configuration)).
+3. Edit the GPIO pin defines in [`main/app_driver.cpp`](Thermostat_Daikin/main/app_driver.cpp) to match your wiring (see [Pin configuration](#pin-configuration)).
 4. Build, flash, and monitor — see [Building & Flashing](#building--flashing).
 5. [Commission](#commissioning) with your smart home app.
 
@@ -84,10 +84,10 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 You need *something* between the ESP32-C6 and the Daikin's S21 port — the S21 bus is 5V logic and the ESP32 is 3.3V. A standard bidirectional level shifter (e.g. BSS138-based, like Adafruit / SparkFun "logic level converter" boards) works fine for the data lines if wired correctly; that's the same approach the included PCB uses. The reason for recommending a known-good board over breadboarding is more about getting the power supply, connectors, and protection right than about the level shifting being especially tricky.
 
-> ⚠️ **Important — the included PCB inverts the S21 signals in hardware, and the firmware is written to match.** The bit-bang routines in [`main/s21_driver.cpp`](main/s21_driver.cpp) intentionally output and sample *inverted* logic levels (see `gpio_set_level(... bit ? 0 : 1)` at line 27 for TX and `if (level == 0) byte |= ...` at line 50 for RX). If you wire up a generic *non-inverting* level shifter, the AC will receive the wrong polarity and communication will silently fail. You then have two choices:
+> ⚠️ **Important — the included PCB inverts the S21 signals in hardware, and the firmware is written to match.** The bit-bang routines in [`main/s21_driver.cpp`](Thermostat_Daikin/main/s21_driver.cpp) intentionally output and sample *inverted* logic levels (see `gpio_set_level(... bit ? 0 : 1)` at line 27 for TX and `if (level == 0) byte |= ...` at line 50 for RX). If you wire up a generic *non-inverting* level shifter, the AC will receive the wrong polarity and communication will silently fail. You then have two choices:
 >
 > - **Add a hardware inverter** in series with each S21 line (single transistor or a hex inverter IC like 74HC04), or
-> - **Edit the firmware** to remove the inversion — flip the four `bit ? 0 : 1` / `parity ? 0 : 1` writes and the `level == 0` read in [`main/s21_driver.cpp`](main/s21_driver.cpp).
+> - **Edit the firmware** to remove the inversion — flip the four `bit ? 0 : 1` / `parity ? 0 : 1` writes and the `level == 0` read in [`main/s21_driver.cpp`](Thermostat_Daikin/main/s21_driver.cpp).
 >
 > If you're using the included PCB, a Faikout, or any other interface that expects inverted-polarity drive, leave the firmware alone — it's already correct.
 >
@@ -95,8 +95,8 @@ You need *something* between the ESP32-C6 and the Daikin's S21 port — the S21 
 
 Two options that are known to work end-to-end:
 
-1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](../Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection. **Thread + Wi-Fi capable** thanks to the C6's 802.15.4 radio.
-2. **A RevK [ESP32-Faikout](https://codeberg.org/RevK/ESP32-Faikout) board.** This firmware's S21 implementation is derived from RevK's [Faikin](https://codeberg.org/RevK/Faikin) project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikin's). Faikout boards are sold by RevK and on Amazon UK — check the Faikout repo for current availability.
+1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection. **Thread + Wi-Fi capable** thanks to the C6's 802.15.4 radio.
+2. **A RevK [ESP32-Faikout](https://codeberg.org/RevK/ESP32-Faikout) board.** This firmware's S21 implementation is derived from RevK's [Faikout]([https://codeberg.org/RevK/Faikin](https://codeberg.org/RevK/ESP32-Faikout)) project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikout's). Faikout boards are sold by RevK and on Amazon UK — check the Faikout repo for current availability.
 
 > **⚠️ Faikout = Matter over Wi-Fi only (for now).** Current Faikout PCBs use ESP32 / ESP32-S3 chips, neither of which has an 802.15.4 radio. That means **if you flash this firmware onto a Faikout board, you will be running Matter over Wi-Fi, not Thread** — no Thread Border Router involvement. The firmware supports both transports, so it'll commission and work fine; you just lose Thread's mesh / low-power benefits. A future Faikout revision based on the ESP32-C6 (or similar) would change this — track the Faikout repo if that matters to you.
 
@@ -148,7 +148,7 @@ A long press on the GPIO23 button triggers a Matter factory reset (clears all fa
 
 ## Pin configuration
 
-Unless your hardware matches the [included PCB](../Custom%20PCB%20esp32c6/) exactly, you'll need to change the GPIO pin assignments to match your wiring before building. They're defined as preprocessor macros at the top of [`main/app_driver.cpp`](main/app_driver.cpp):
+Unless your hardware matches the [included PCB](Custom%20PCB%20esp32c6/) exactly, you'll need to change the GPIO pin assignments to match your wiring before building. They're defined as preprocessor macros at the top of [`main/app_driver.cpp`](Thermostat_Daikin/main/app_driver.cpp):
 
 ```c
 #define S21_TX_PIN       21   // ESP32 → S21 RX  (output)
@@ -268,7 +268,7 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 
 ## Customizing the device name
 
-To change the manufacturer / model / default name shown in your home app, edit [`main/CHIPProjectConfig.h`](main/CHIPProjectConfig.h) before building:
+To change the manufacturer / model / default name shown in your home app, edit [`main/CHIPProjectConfig.h`](Thermostat_Daikin/main/CHIPProjectConfig.h) before building:
 
 ```c
 #define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME   "Daikin"
@@ -284,7 +284,7 @@ Apple Home, Google Home, and Alexa display these in the device's settings page. 
 
 GPL v2 — see [LICENSE](../LICENSE)
 
-The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
+The S21 protocol implementation is derived from the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
 ---
 
@@ -313,7 +313,7 @@ Open a [GitHub issue](../../issues/new) with:
 - **What happened:** What you expected, what actually occurred, and steps to reproduce
 - **Logs:** Serial monitor output at 115200 baud, especially anything around the failure point
 
-If your device commissions but the AC never updates state, the most likely cause is the S21 interface — wrong wiring, wrong connector type (Type A vs B), or the wrong GPIO pins compiled in (check [`main/app_driver.cpp`](main/app_driver.cpp)). Verify by trying with the [included PCB](../Custom%20PCB%20esp32c6/) or a [Faikout](https://codeberg.org/RevK/ESP32-Faikout) board, both of which are known-good.
+If your device commissions but the AC never updates state, the most likely cause is the S21 interface — wrong wiring, wrong connector type (Type A vs B), or the wrong GPIO pins compiled in (check [`main/app_driver.cpp`](Thermostat_Daikin/main/app_driver.cpp)). Verify by trying with the [included PCB](Custom%20PCB%20esp32c6/) or a [Faikout](https://codeberg.org/RevK/ESP32-Faikout) board, both of which are known-good.
 
 ---
 
@@ -327,7 +327,7 @@ Daikin makes excellent air conditioners and a famously poor cloud experience. Th
 - Stops working the moment Daikin retires the cloud product (and they have, repeatedly)
 - Doesn't extend to multiple ecosystems — it's the Daikin app or nothing
 
-Meanwhile, most modern Daikin split units ship with an **S21 service port** sitting unused inside the indoor unit, exposing the full feature set of the AC over a documented(-ish) serial protocol. RevK's [Faikin](https://codeberg.org/RevK/Faikin) project did the hard work of reverse-engineering the protocol and shipping the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) hardware. This project bolts a Matter front-end onto that work — turning the same hardware into a fully local, cloud-free, multi-ecosystem Matter accessory that works directly with Apple Home, Google Home, Alexa, and Home Assistant. No app to install, no servers to depend on, no recurring fee.
+Meanwhile, most modern Daikin split units ship with an **S21 service port** sitting unused inside the indoor unit, exposing the full feature set of the AC over a documented(-ish) serial protocol. RevK's [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project did the hard work of reverse-engineering the protocol and shipping the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) hardware. This project bolts a Matter front-end onto that work — turning the same hardware into a fully local, cloud-free, multi-ecosystem Matter accessory that works directly with Apple Home, Google Home, Alexa, and Home Assistant. No app to install, no servers to depend on, no recurring fee.
 
 ### Why Matter over Thread?
 
