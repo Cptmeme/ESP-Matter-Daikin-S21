@@ -1,6 +1,6 @@
 # Daikin S21 — Matter over Thread
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Release](https://img.shields.io/github/v/release/cptmeme/ESP-Matter-Daikin-S21)](../../releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/cptmeme/ESP-Matter-Daikin-S21/total)](../../releases)
 [![Stars](https://img.shields.io/github/stars/cptmeme/ESP-Matter-Daikin-S21?style=social)](../../stargazers)
@@ -8,12 +8,6 @@
 > **⚠️ Disclaimer.** Connecting custom hardware to your air conditioner can damage the unit, the controller board, or the ESP32. Incorrect wiring can short-circuit the S21 bus, brick the indoor unit's PCB, or cause the unit to behave unpredictably. Always disconnect mains power to the AC before opening it. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, or Espressif Systems.
 
 Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no subscription, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
-
-<p align="center">
-  <img src="docs/images/apple-home-ac-tile.png" alt="Daikin AC running this firmware in Apple Home, showing as a Room Air Conditioner tile" width="300">
-</p>
-
-*Daikin split unit running this firmware, commissioned to Apple Home as a Room Air Conditioner. Manufacturer: Daikin, Model: Daikin A/C.*
 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
@@ -305,9 +299,9 @@ To customize the device name shown in your home app, edit [`main/CHIPProjectConf
 
 ## License
 
-Apache 2.0 — see [LICENSE](../LICENSE)
+GPL v2 — see [LICENSE](../LICENSE)
 
-Based on the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems, licensed under Apache 2.0. The S21 protocol implementation is informed by the [Faikin](https://github.com/revk/ESP32-Faikin) project by Adrian Kennard, also Apache 2.0.
+The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by Adrian Kennard, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
 ---
 
