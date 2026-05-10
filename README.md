@@ -212,7 +212,7 @@ I (xxxx) app_main: Powerful plug-in unit created with endpoint_id 2
 I (xxxx) app_main: Commissioning window opened
 ```
 
-This confirms Matter is initialized and the device is advertising for commissioning over BLE. Exit the monitor with `Ctrl+]`.
+This confirms Matter is initialized and the device is advertising for commissioning over BLE.
 
 ## Commissioning
 
