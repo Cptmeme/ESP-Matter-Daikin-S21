@@ -10,8 +10,6 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
 > **Powerful mode** is exposed on a second endpoint as an OnOff plug-in unit. In Apple Home and Google Home it appears as an "Outlet" tile next to the AC tile — rename it to "Powerful" in your home app.
->
-> **Quiet mode is intentionally not exposed.** Matter has no native concept that maps to Daikin's Quiet (which limits both compressor and fan), so adding it as a separate endpoint would be misleading. Use the AC's remote for Quiet, or contribute a PR if you want to plumb it.
 
 > ⚠️ Uses ESP-Matter SDK test credentials (vendor `0xFFF1`, not VID/PID-certified). Functional for personal use; not suitable for resale as a certified Matter product.
 
