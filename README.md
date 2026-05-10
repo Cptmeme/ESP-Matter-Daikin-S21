@@ -164,7 +164,7 @@ If you're using a board where the buttons or LEDs are on different pins than the
 
 ## Building & Flashing
 
-> **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source. Sorry — but it's unavoidable until somebody adds runtime pin configuration via Kconfig or the Matter UserLabel cluster.
+> **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source.
 
 ### 1. Install ESP-IDF and ESP-Matter
 
@@ -202,7 +202,7 @@ idf.py -p <PORT> flash monitor
 
 Replace `<PORT>` with your serial port (`/dev/cu.usbserial-XXXX` on macOS, `/dev/ttyUSB0` on Linux, `COM3` on Windows).
 
-> ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified HVAC technician install the interface board for you and just plug into the S21 connector once it's accessible.
+> ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified technician install the cable for you and just plug into the S21 connector once it's accessible.
 
 ### 4. Verify the firmware is running
 
@@ -261,13 +261,8 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 ---
 
 ## Known Issues / Roadmap
-
-- [ ] **Quiet mode** — not currently exposed to Matter. Could be added as a third endpoint (similar to Powerful), but Matter has no native concept that cleanly represents it. PRs welcome.
-- [ ] **Fan slider in Apple Home / Google Home** — both controllers' AC tiles omit the fan slider. Workaround would be exposing fan as a separate `Fan` device type (`0x002B`) endpoint, at the cost of a third tile in those apps. Not implemented yet.
-- [ ] **Outside temperature** — the S21 protocol exposes outside-coil temperature; not currently mirrored to a Matter cluster. Could be added as a second TemperatureMeasurement endpoint.
 - [ ] **Swing / louver position** — the S21 protocol supports it; no Matter wiring yet.
-- [ ] **Energy reporting** — Matter 1.3 added Power and Energy clusters, supported in some controllers (HA). The Daikin S21 protocol does not expose energy data, so this would require external metering.
-- [ ] **Configurable fan-speed mapping** — currently Matter Low/Med/High maps to S21 speeds 1/3/5. A Kconfig option for finer granularity (e.g. Low=2, High=4) could be useful for some users.
+- [ ] **Energy reporting** — Matter 1.3 added Power and Energy clusters, supported in some controllers (HA).
 
 ---
 
@@ -289,7 +284,7 @@ Apple Home, Google Home, and Alexa display these in the device's settings page. 
 
 GPL v2 — see [LICENSE](../LICENSE)
 
-The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by Adrian Kennard, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
+The S21 protocol implementation is derived from the [Faikin](https://github.com/revk/ESP32-Faikin) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
 ---
 
