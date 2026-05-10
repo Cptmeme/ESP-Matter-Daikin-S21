@@ -335,12 +335,3 @@ This firmware speaks Matter directly. There's no middleware:
 
 Matter is an industry-standard protocol — your AC works with the ecosystems you have today and remains compatible with new Matter ecosystems as they appear.
 
----
-
-## About
-
-This firmware exists because I have a Daikin AC and refused to install yet another vendor app on my phone. RevK's Faikin/Faikout project had already done the hard part — reverse-engineering S21 and shipping working hardware — but only spoke MQTT and HTTP. With ESP-IDF and esp-matter, it wasn't a huge leap to put a native Matter front-end on the same hardware so the unit shows up directly in Apple Home alongside everything else.
-
-Along the way I learned more than I wanted to about: which level shifters do and don't work on the S21 bus, how Apple Home's Room AC tile chooses to omit the fan slider entirely, what `data_model: Cannot set bounds because of val type mismatch: expected: 7, min: 9, max: 9` means deep inside esp-matter, and why two fabrics get created during a single Apple Home pairing (spoiler: vendor `0x1384` is "Apple Keychain", not Samsung).
-
-If this firmware saved you the same headaches — or at least a €100 BRP module — consider leaving a ⭐ on the repo. It helps other Daikin owners find this project and signals there's a working alternative to the official ecosystem.
