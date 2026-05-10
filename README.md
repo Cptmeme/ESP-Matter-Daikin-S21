@@ -1,15 +1,19 @@
 # Daikin S21 — Matter over Thread
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![Release](https://img.shields.io/github/v/release/cptmeme/ESP-Matter-Daikin-S21)](../../releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/cptmeme/ESP-Matter-Daikin-S21/total)](../../releases)
 [![Stars](https://img.shields.io/github/stars/cptmeme/ESP-Matter-Daikin-S21?style=social)](../../stargazers)
 
-> **⚠️ Disclaimer.** Connecting custom hardware to your air conditioner can damage the unit, the controller board, or the ESP32. Incorrect wiring can short-circuit the S21 bus, brick the indoor unit's PCB, or cause the unit to behave unpredictably. Always disconnect mains power to the AC before opening it. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, or Espressif Systems.
+> **⚠️ Disclaimer.** Opening your air conditioner exposes you to mains voltage and can damage the unit. Always disconnect mains power at the breaker before opening the indoor unit. Incorrect wiring on the S21 bus can damage the AC's controller board or the ESP32. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, Espressif Systems, or RevK / the Faikin/Faikout project.
 
-Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
+Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no subscription, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
 > **Powerful mode** is exposed on a second endpoint as an OnOff plug-in unit. In Apple Home and Google Home it appears as an "Outlet" tile next to the AC tile — rename it to "Powerful" in your home app.
+>
+> **Quiet mode is intentionally not exposed.** Matter has no native concept that maps to Daikin's Quiet (which limits both compressor and fan), so adding it as a separate endpoint would be misleading. Use the AC's remote for Quiet, or contribute a PR if you want to plumb it.
 
 > ⚠️ Uses ESP-Matter SDK test credentials (vendor `0xFFF1`, not VID/PID-certified). Functional for personal use; not suitable for resale as a certified Matter product.
 
@@ -35,11 +39,11 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 ## Quick Start
 
-**Have a [Thread Border Router](#compatible-hubs), an ESP32-C6, an optocoupler or FET-based S21 interface, and a Daikin unit with an S21 port? Flash and go.**
+**Have a [Thread Border Router](#compatible-hubs), an ESP32-C6, an S21 interface board (the included PCB or a Faikout), and a Daikin unit with an S21 port? Flash and go.**
 
 1. [Download the latest release](../../releases/latest) — grab the `daikin-s21-matter-vX.Y.Z.bin` file from the assets.
-2. Wire the ESP32-C6 to your Daikin S21 port [as documented below](#s21-wiring). **Read the level-shifter warning first** — a generic 4-channel level shifter will not work.
-3. Flash with `esptool` or ESPConnect [as documented below](#flashing).
+2. Connect the interface board to your Daikin's S21 port — see [Hardware](#hardware).
+3. Flash with `esptool` or ESPConnect — see [Flashing](#flashing).
 4. [Commission](#commissioning) with your smart home app.
 
 ---
@@ -64,57 +68,79 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 > **Requires a Thread Border Router.** A Thread Border Router is required for any Matter-over-Thread device. See the table below for tested and supported options.
 
-> **SmartThings note.** SmartThings recognizes the device as a Room Air Conditioner and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or HA if you need Powerful.
+| Thread Border Router | Ecosystem | Tested |
+|----------------------|-----------|--------|
+| Apple HomePod mini / HomePod (2nd gen) | Apple Home | Untested |
+| Apple TV 4K (3rd gen) | Apple Home | Untested |
+| Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | Untested |
+| Amazon Echo (4th gen) / Echo Hub | Alexa | Untested |
+| Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | Untested |
+| Aeotec / SmartThings Station / Hub v3 | SmartThings | Untested |
+
+> Apple iPhones (15 Pro and later) include a Thread radio but, as far as I'm aware, Apple has not enabled them as Thread Border Routers — they act as commissioners only. You still need a HomePod or Apple TV in your network to actually run the Thread mesh.
+
+> **SmartThings note.** SmartThings recognizes Matter Room Air Conditioner devices and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or Home Assistant if you need Powerful.
 
 ---
 
 ## Hardware
 
-### What you will need
+### Recommended path: use a known-good interface board
 
-- ESP32-C6 development board (any variant with the 802.15.4 radio — DevKit-C6, Seeed XIAO ESP32-C6, Waveshare ESP32-C6-Mini-1, etc.)
-- A Daikin split unit with an S21 port (5-pin JST connector inside the indoor unit, present on most models from ~2010 onward — search "Daikin S21 port [your model]" to confirm)
-- **An optocoupler-based or FET-based S21 interface board** — see the warning below
-- A momentary push button between GPIO23 and GND for factory reset
-- Wires, JST 5-pin connector or breadboard jumpers
-- A USB-C cable for flashing
+You need *something* between the ESP32-C6 and the Daikin's S21 port — the S21 bus is 5V logic, the ESP32 is 3.3V, and the timing/biasing is fussy enough that throwing a random level shifter at it does not reliably work (I learned this the hard way). Two options that are known to work:
 
-> ⚠️ **Critical: do not use a generic bidirectional level shifter (e.g. BSS138 / 4-channel "logic level converter" boards).**
->
-> Daikin's S21 protocol uses **inverted UART** signals at 5V logic levels. Generic open-drain level shifters with pull-ups invert the signal further and distort timing — communication will silently fail with no obvious error. Use one of:
-> - An optocoupler-based interface (e.g. PC817 or 6N137 in both directions)
-> - A FET-based active level shifter that does not invert
-> - The reference PCB from this repo's `Custom PCB esp32c6/` folder
-> - The ESP32-Faikout PCB design (which this project's hardware approach is based on)
->
-> If you wired up a regular 4-channel logic level converter and the device commissions but no temperature/state ever updates, this is almost certainly your problem. Replace the level shifter and try again.
+1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](../Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection.
+2. **A RevK [ESP32-Faikout](https://codeberg.org/RevK/ESP32-Faikout) board.** This firmware's S21 implementation is derived from RevK's [Faikin](https://codeberg.org/RevK/Faikin) project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikin's). Faikout boards are sold by RevK and on Amazon UK — check the Faikout repo for current availability.
 
-### S21 wiring
+If you want to roll your own interface, use the included PCB as a reference rather than starting from scratch.
 
-| ESP32-C6 | Daikin S21 |
-|----------|------------|
-| GPIO 21 (TX, output) → optocoupler/FET → | S21 RX |
-| GPIO 20 (RX, input) ← optocoupler/FET ← | S21 TX |
-| GND | S21 GND |
-| 5V (from S21 connector) → S21 interface board | (powers the interface; do **not** feed back into the ESP32 directly) |
+### S21 connector pinout
 
-> **TX/RX naming follows the ESP32's perspective.** ESP32 TX is an output, ESP32 RX is an input. The crossover is built into the table above.
->
-> **Do not connect S21's 5V directly to the ESP32-C6's 3.3V rail.** Most ESP32-C6 dev boards accept 5V on the `VIN` / `5V` pin (it goes through the onboard regulator), but the S21 5V rail is current-limited and shared with the AC's own logic — drawing too much can confuse the indoor unit's PCB. Power the ESP32 from USB-C during development; once installed, use the AC's 5V only via a stable interface board.
+Pinout, colors, and connector types are documented authoritatively in [Faikin's wiring wiki](https://codeberg.org/RevK/ESP32-Faikout/wiki/Wiring). Reproduced for convenience:
 
-### Factory reset button
+| Pin | Daikin color | Generic color | Function |
+|-----|--------------|---------------|----------|
+| 1 | Brown | Orange | 5V (not always connected; insufficient current for the board) |
+| 2 | Red | Blue | TX from aircon (5V logic) |
+| 3 | Orange | Yellow | RX to aircon (5V logic; most models accept 3.3V) |
+| 4 | Yellow | Red | 12-14V (the actual power source — both Faikout and the included PCB run from this pin) |
+| 5 | Blue | Black | GND |
 
-| ESP32-C6 | Component |
-|----------|-----------|
-| GPIO 23 | Momentary push button → GND (active low, internal pullup enabled) |
+> **Pin direction is from the aircon's perspective.** Pin 2 is the aircon's TX (data flowing *out* of the AC, *into* the ESP32). Pin 3 is the aircon's RX (data flowing *into* the AC, *from* the ESP32). The included PCB / Faikout handles the crossover correctly.
 
-A long press triggers a Matter factory reset (clears all fabrics and re-enters BLE commissioning mode). A short press opens a new commissioning window if no fabric is paired.
+> **Power comes from pin 4, not pin 1.** Pin 1's 5V rail does not supply enough current to run the ESP32-C6 + interface logic. The included PCB uses a [TI TPS562246](https://www.ti.com/product/TPS562246) synchronous step-down (buck) converter to take the 12-14V from pin 4 down to 3.3V for the ESP32. Faikout uses a similar wide-input regulator and accepts anywhere from 4V to 36V on pin 4. **Do not try to power the board from pin 1.**
+
+**Two physical connector variants exist on the Daikin side:**
+- **Type A** — JST EH (2.5 mm pitch), older models
+- **Type B** — JST PAP (2.0 mm pitch), newer models
+
+The boards above use JST EH male (5-way). For Type B units you need either a Type-A-to-Type-B cable or a different connector on the board. Faikin's wiring wiki links to per-type cable drawings.
+
+### Where to find the S21 port on your AC
+
+- [Faikin's confirmed-working models list](https://codeberg.org/RevK/ESP32-Faikout/wiki/List-of-confirmed-working-air-con-units) — start here. If your model is on this list it has S21.
+- [Faikin's FTXM wiring teardown](https://codeberg.org/RevK/ESP32-Faikout/wiki/FTXMxxW2VMA-Wiring) — step-by-step photos for the FTXM series, the most common Daikin split.
+- For other models the S21 port is generally on the indoor unit's main controller PCB, accessible after removing the front cover and electrical-bay cover.
+
+### ESP32-C6 GPIO assignments (firmware side)
+
+| ESP32-C6 GPIO | Function |
+|---------------|----------|
+| GPIO 20 | S21 RX (input) — receives data from the AC |
+| GPIO 21 | S21 TX (output) — transmits to the AC |
+| GPIO 23 | Factory-reset / commissioning button → GND (active low, internal pull-up) |
+
+> **GPIO TX/RX naming is from the ESP32's perspective.** GPIO21 is an output, GPIO20 is an input. This is the opposite of the S21 connector's pin labels (which are from the AC's perspective). The included PCB and Faikout both wire the crossover correctly — you don't need to think about it if you're using either board.
+
+### Factory-reset button
+
+A long press on the GPIO23 button triggers a Matter factory reset (clears all fabrics and re-enters BLE commissioning mode). A short press opens a new commissioning window if no fabric is paired.
 
 ---
 
 ## Flashing
 
-> ⚠️ **Disconnect mains power to the AC before opening the indoor unit.** Even with the breaker off, capacitors in the AC's PCB can hold dangerous voltage for several minutes. If you are not comfortable working inside the indoor unit, hire a qualified HVAC technician to install the S21 interface for you.
+> ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified HVAC technician install the interface board for you and just plug into the S21 connector once it's accessible.
 
 ### Flash with esptool
 
@@ -315,7 +341,7 @@ Open a [GitHub issue](../../issues/new) with:
 - **What happened:** What you expected, what actually occurred, and steps to reproduce
 - **Logs:** Serial monitor output at 115200 baud, especially anything around the failure point
 
-If your device commissions but the AC never updates state, **the most likely cause is the level-shifter pitfall** described in [Hardware](#hardware). Verify your S21 interface is optocoupler- or FET-based, not a generic bidirectional level shifter.
+If your device commissions but the AC never updates state, the most likely cause is the S21 interface — wrong wiring, wrong connector type (Type A vs B), or a custom level-shifter circuit that doesn't bias the line correctly. Verify by trying with the [included PCB](../Custom%20PCB%20esp32c6/) or a [Faikout](https://codeberg.org/RevK/ESP32-Faikout) board, both of which are known-good.
 
 Firmware filename convention: `daikin-s21-matter-{version}.bin`
 
@@ -331,15 +357,15 @@ Daikin makes excellent air conditioners and a famously poor cloud experience. Th
 - Stops working the moment Daikin retires the cloud product (and they have, repeatedly)
 - Doesn't extend to multiple ecosystems — it's the Daikin app or nothing
 
-Meanwhile, every modern Daikin split unit ships with an **S21 service port** sitting unused inside the indoor unit, exposing the full feature set of the AC over a documented (-ish) serial protocol. This firmware turns a $5 ESP32-C6 + a $3 optocoupler into a fully local, cloud-free, multi-ecosystem Matter accessory. No app to install, no servers to depend on, no recurring fee.
+Meanwhile, most modern Daikin split units ship with an **S21 service port** sitting unused inside the indoor unit, exposing the full feature set of the AC over a documented(-ish) serial protocol. RevK's [Faikin](https://codeberg.org/RevK/Faikin) project did the hard work of reverse-engineering the protocol and shipping the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) hardware. This project bolts a Matter front-end onto that work — turning the same hardware into a fully local, cloud-free, multi-ecosystem Matter accessory that works directly with Apple Home, Google Home, Alexa, and Home Assistant. No app to install, no servers to depend on, no recurring fee.
 
 ### Why Matter over Thread?
 
 Matter over Thread offers lower power consumption, lower latency, and a mesh that doesn't depend on your WiFi. Thread devices use any compatible Thread Border Router (HomePod mini, Apple TV 4K, iPhone 15 Pro+, Nest Hub 2nd gen, HA SkyConnect/Yellow) and continue to function even if your WiFi is down or congested. The ESP32-C6 has both a WiFi 6 radio and an 802.15.4 Thread radio — this firmware uses the Thread radio so the WiFi stack can stay quiet.
 
-### Why Matter, and not ESPHome / Tasmota / Faikin?
+### Why Matter, and not Faikin / ESPHome / Tasmota?
 
-Faikin is excellent and deserves credit — it inspired this project's S21 implementation. But Faikin (and ESPHome, Tasmota) all assume a central controller: Home Assistant, an MQTT broker, or a custom dashboard. They're great if that's your setup. They're a problem if it isn't.
+Faikin is excellent and deserves credit — it's the source of this project's S21 implementation and the entire reason the protocol is documented at all. But Faikin (and ESPHome, Tasmota) all assume a central controller: Home Assistant, an MQTT broker, or a custom dashboard. They're great if that's your setup. They're a problem if it isn't.
 
 This firmware speaks Matter directly. There's no middleware:
 
@@ -354,8 +380,8 @@ Matter is an industry-standard protocol — your AC works with the ecosystems yo
 
 ## About
 
-This firmware exists because I have a Daikin AC and refused to install yet another vendor app on my phone. After staring at the S21 connector long enough, I figured out that with an ESP32-C6, an optocoupler, and a few weekends, I could turn the unit into a first-class Matter accessory that lives natively in Apple Home alongside everything else.
+This firmware exists because I have a Daikin AC and refused to install yet another vendor app on my phone. RevK's Faikin/Faikout project had already done the hard part — reverse-engineering S21 and shipping working hardware — but only spoke MQTT and HTTP. With ESP-IDF and esp-matter, it wasn't a huge leap to put a native Matter front-end on the same hardware so the unit shows up directly in Apple Home alongside everything else.
 
-Along the way I learned more than I wanted to about: Daikin's checksum quirks, why a generic 4-channel level shifter silently fails on inverted UART, how Apple Home's Room AC tile chooses to omit the fan slider, what `expected: 7, min: 9, max: 9` means deep inside the esp-matter data model, and why two fabrics get created during a single Apple Home pairing (spoiler: iCloud Keychain).
+Along the way I learned more than I wanted to about: which level shifters do and don't work on the S21 bus, how Apple Home's Room AC tile chooses to omit the fan slider entirely, what `data_model: Cannot set bounds because of val type mismatch: expected: 7, min: 9, max: 9` means deep inside esp-matter, and why two fabrics get created during a single Apple Home pairing (spoiler: vendor `0x1384` is "Apple Keychain", not Samsung).
 
-If this firmware saved you the same headache — or at least a €100 BRP module — consider leaving a ⭐ on the repo. It helps other Daikin owners find this project and signals there's a working alternative to the official ecosystem.
+If this firmware saved you the same headaches — or at least a €100 BRP module — consider leaving a ⭐ on the repo. It helps other Daikin owners find this project and signals there's a working alternative to the official ecosystem.
