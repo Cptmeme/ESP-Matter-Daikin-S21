@@ -5,13 +5,11 @@
 
 > **⚠️ Disclaimer.** Opening your air conditioner exposes you to mains voltage and can damage the unit. Always disconnect mains power at the breaker before opening the indoor unit. Incorrect wiring on the S21 bus can damage the AC's controller board or the ESP32. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, Espressif Systems, or RevK / the Faikin/Faikout project.
 
-Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no subscription, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
+Open source Matter firmware for Daikin split air conditioners with an S21 port. Adds your AC to Apple Home, Google Home, Alexa, and Home Assistant — no Daikin app, no cloud, no BRP module. **Most modern Daikin split units have an S21 connector inside the indoor unit waiting to be used.**
 
 > This release is the **Room Air Conditioner variant** — Matter device type `0x0072`, with **OnOff, Thermostat, Fan Control, and Temperature Measurement** clusters bundled into a single tile. Power, mode (Heat / Cool / Auto / Off), setpoint, current temperature, and fan speed all surface as native Matter attributes.
 >
 > **Powerful mode** is exposed on a second endpoint as an OnOff plug-in unit. In Apple Home and Google Home it appears as an "Outlet" tile next to the AC tile — rename it to "Powerful" in your home app.
->
-> **Quiet mode is intentionally not exposed.** Matter has no native concept that maps to Daikin's Quiet (which limits both compressor and fan), so adding it as a separate endpoint would be misleading. Use the AC's remote for Quiet, or contribute a PR if you want to plumb it.
 
 > ⚠️ Uses ESP-Matter SDK test credentials (vendor `0xFFF1`, not VID/PID-certified). Functional for personal use; not suitable for resale as a certified Matter product.
 
@@ -51,7 +49,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 ## Features
 
 - ✅ Matter over Thread — uses the ESP32-C6's 802.15.4 radio, no WiFi required
-- ✅ Compatible with Apple Home, Google Home, Alexa, Home Assistant
+- ✅ Compatible with Apple Home, Google Home, Alexa, Home Assistant, etc.
 - ✅ Multi-fabric — commission to multiple hubs simultaneously
 - ✅ Native Room Air Conditioner tile (single accessory in your home app)
 - ✅ Power, Mode (Heat/Cool/Auto/Off), Setpoint, Current Temperature
@@ -60,7 +58,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 - ✅ Two-way state sync — adjusting on the Daikin remote updates your home app within ~2 seconds
 - ✅ Factory reset via long press on the onboard button
 
-> **Fan speed visibility note:** Apple Home and Google Home currently *do not render* the fan slider on their AC tile, even when the firmware correctly advertises it. Home Assistant shows it. This is a controller-side UI limitation, not a firmware bug — the FanControl cluster is correctly registered and writable from any Matter controller that chooses to surface it (e.g. via Apple Shortcuts).
+> **Fan speed visibility note:** Apple Home and Google Home (on IOS) currently *do not render* the fan slider on their AC tile, even when the firmware correctly advertises it. Home Assistant shows it. This is a controller-side UI limitation, not a firmware bug — the FanControl cluster is correctly registered and writable from any Matter controller that chooses to surface it.
 
 ---
 
@@ -73,14 +71,10 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 | Apple HomePod mini (gen 1) | Apple Home | ✅ |
 | Apple HomePod (2nd gen) | Apple Home | Untested |
 | Apple TV 4K (3rd gen) | Apple Home | ✅ |
-| Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | Untested |
+| Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | ✅ |
 | Amazon Echo (4th gen) / Echo Hub | Alexa | Untested |
-| Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | Untested |
+| Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | ✅ |
 | Aeotec / SmartThings Station / Hub v3 | SmartThings | Untested |
-
-> Apple iPhones (15 Pro and later) include a Thread radio but, as far as I'm aware, Apple has not enabled them as Thread Border Routers — they act as commissioners only. You still need a HomePod or Apple TV in your network to actually run the Thread mesh. **Tested commissioner: iPhone 17 Pro Max** — works fine for the BLE pairing and ongoing control via the Home app.
-
-> **SmartThings note.** SmartThings recognizes Matter Room Air Conditioner devices and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or Home Assistant if you need Powerful.
 
 ---
 
