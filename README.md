@@ -1,8 +1,6 @@
 # Daikin S21 — Matter over Thread
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-[![Release](https://img.shields.io/github/v/release/cptmeme/ESP-Matter-Daikin-S21)](../../releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/cptmeme/ESP-Matter-Daikin-S21/total)](../../releases)
 [![Stars](https://img.shields.io/github/stars/cptmeme/ESP-Matter-Daikin-S21?style=social)](../../stargazers)
 
 > **⚠️ Disclaimer.** Opening your air conditioner exposes you to mains voltage and can damage the unit. Always disconnect mains power at the breaker before opening the indoor unit. Incorrect wiring on the S21 bus can damage the AC's controller board or the ESP32. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, Espressif Systems, or RevK / the Faikin/Faikout project.
@@ -25,11 +23,12 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 - [Features](#features)
 - [Compatible Hubs](#compatible-hubs)
 - [Hardware](#hardware)
-- [Flashing](#flashing)
+- [Pin configuration](#pin-configuration)
+- [Building & Flashing](#building--flashing)
 - [Commissioning](#commissioning)
 - [Factory Reset](#factory-reset)
 - [Known Issues / Roadmap](#known-issues--roadmap)
-- [Building from Source](#building-from-source)
+- [Customizing the device name](#customizing-the-device-name)
 - [License](#license)
 - [Matter and Thread Certification](#matter-and-thread-certification)
 - [Contributing](#contributing)
@@ -39,12 +38,13 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 ## Quick Start
 
-**Have a [Thread Border Router](#compatible-hubs), an ESP32-C6, an S21 interface board (the included PCB or a Faikout), and a Daikin unit with an S21 port? Flash and go.**
+**You'll be building from source — there are no pre-built binaries (see [Building & Flashing](#building--flashing) for why).**
 
-1. [Download the latest release](../../releases/latest) — grab the `daikin-s21-matter-vX.Y.Z.bin` file from the assets.
-2. Connect the interface board to your Daikin's S21 port — see [Hardware](#hardware).
-3. Flash with `esptool` or ESPConnect — see [Flashing](#flashing).
-4. [Commission](#commissioning) with your smart home app.
+1. Install ESP-IDF and ESP-Matter — follow Espressif's [Getting the Repositories](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html) guide.
+2. Connect your interface board to the Daikin's S21 port — see [Hardware](#hardware).
+3. Edit the GPIO pin defines in [`main/app_driver.cpp`](main/app_driver.cpp) to match your wiring (see [Pin configuration](#pin-configuration)).
+4. Build, flash, and monitor — see [Building & Flashing](#building--flashing).
+5. [Commission](#commissioning) with your smart home app.
 
 ---
 
@@ -70,14 +70,15 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 | Thread Border Router | Ecosystem | Tested |
 |----------------------|-----------|--------|
-| Apple HomePod mini / HomePod (2nd gen) | Apple Home | Untested |
-| Apple TV 4K (3rd gen) | Apple Home | Untested |
+| Apple HomePod mini (gen 1) | Apple Home | ✅ |
+| Apple HomePod (2nd gen) | Apple Home | Untested |
+| Apple TV 4K (3rd gen) | Apple Home | ✅ |
 | Google Nest Hub (2nd gen), Nest Wifi Pro | Google Home | Untested |
 | Amazon Echo (4th gen) / Echo Hub | Alexa | Untested |
 | Home Assistant SkyConnect / Yellow / Connect ZBT-1 | Home Assistant | Untested |
 | Aeotec / SmartThings Station / Hub v3 | SmartThings | Untested |
 
-> Apple iPhones (15 Pro and later) include a Thread radio but, as far as I'm aware, Apple has not enabled them as Thread Border Routers — they act as commissioners only. You still need a HomePod or Apple TV in your network to actually run the Thread mesh.
+> Apple iPhones (15 Pro and later) include a Thread radio but, as far as I'm aware, Apple has not enabled them as Thread Border Routers — they act as commissioners only. You still need a HomePod or Apple TV in your network to actually run the Thread mesh. **Tested commissioner: iPhone 17 Pro Max** — works fine for the BLE pairing and ongoing control via the Home app.
 
 > **SmartThings note.** SmartThings recognizes Matter Room Air Conditioner devices and exposes power, mode, setpoint, and current temp. It does **not** surface the secondary "Powerful" endpoint (a known SmartThings limitation: it only renders endpoint compositions matching its predefined device profiles). Use Apple Home, Google Home, or Home Assistant if you need Powerful.
 
@@ -89,8 +90,10 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 You need *something* between the ESP32-C6 and the Daikin's S21 port — the S21 bus is 5V logic, the ESP32 is 3.3V, and the timing/biasing is fussy enough that throwing a random level shifter at it does not reliably work (I learned this the hard way). Two options that are known to work:
 
-1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](../Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection.
+1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](../Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection. **Thread + Wi-Fi capable** thanks to the C6's 802.15.4 radio.
 2. **A RevK [ESP32-Faikout](https://codeberg.org/RevK/ESP32-Faikout) board.** This firmware's S21 implementation is derived from RevK's [Faikin](https://codeberg.org/RevK/Faikin) project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikin's). Faikout boards are sold by RevK and on Amazon UK — check the Faikout repo for current availability.
+
+> **⚠️ Faikout = Matter over Wi-Fi only (for now).** Current Faikout PCBs use ESP32 / ESP32-S3 chips, neither of which has an 802.15.4 radio. That means **if you flash this firmware onto a Faikout board, you will be running Matter over Wi-Fi, not Thread** — no Thread Border Router involvement. The firmware supports both transports, so it'll commission and work fine; you just lose Thread's mesh / low-power benefits. A future Faikout revision based on the ESP32-C6 (or similar) would change this — track the Faikout repo if that matters to you.
 
 If you want to roll your own interface, use the included PCB as a reference rather than starting from scratch.
 
@@ -138,60 +141,67 @@ A long press on the GPIO23 button triggers a Matter factory reset (clears all fa
 
 ---
 
-## Flashing
+## Pin configuration
+
+Unless your hardware matches the [included PCB](../Custom%20PCB%20esp32c6/) exactly, you'll need to change the GPIO pin assignments to match your wiring before building. They're defined as preprocessor macros at the top of [`main/app_driver.cpp`](main/app_driver.cpp):
+
+```c
+#define S21_TX_PIN       21   // ESP32 → S21 RX  (output)
+#define S21_RX_PIN       20   // ESP32 ← S21 TX  (input)
+#define BUTTON_GPIO_PIN  23   // factory-reset / commissioning button → GND
+```
+
+Pick GPIOs that are safe to use as general-purpose IO on your specific ESP32 variant (avoid strapping pins, JTAG pins, USB pins, etc.). For ESP32-C6 the [Espressif datasheet pinout table](https://www.espressif.com/sites/default/files/documentation/esp32-c6_datasheet_en.pdf) is the authoritative reference.
+
+If you're using a board where the buttons or LEDs are on different pins than the included PCB, you may also need to adjust them in `app_driver.cpp` and `app_main.cpp`.
+
+---
+
+## Building & Flashing
+
+> **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source. Sorry — but it's unavoidable until somebody adds runtime pin configuration via Kconfig or the Matter UserLabel cluster.
+
+### 1. Install ESP-IDF and ESP-Matter
+
+Follow Espressif's official setup: **[Getting the ESP-Matter Repositories](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html)**. The short version on macOS / Linux:
+
+```bash
+mkdir -p ~/esp && cd ~/esp
+git clone --recursive https://github.com/espressif/esp-idf.git
+cd esp-idf && ./install.sh esp32c6 && cd ..
+git clone --depth 1 https://github.com/espressif/esp-matter.git
+cd esp-matter && ./install.sh && cd ..
+```
+
+ESP-IDF v5.3.2 or newer is required. ESP-Matter follows IDF closely; pin a compatible release tag if you hit version mismatches.
+
+### 2. Configure your environment in every new shell
+
+```bash
+source ~/esp/esp-idf/export.sh
+source ~/esp/esp-matter/export.sh
+```
+
+### 3. Build and flash
+
+```bash
+git clone https://github.com/cptmeme/ESP-Matter-Daikin-S21.git
+cd ESP-Matter-Daikin-S21/Thermostat_Daikin
+
+# Edit main/app_driver.cpp first if your pins differ from the included PCB.
+
+idf.py set-target esp32c6
+idf.py build
+idf.py -p <PORT> flash monitor
+```
+
+Replace `<PORT>` with your serial port (`/dev/cu.usbserial-XXXX` on macOS, `/dev/ttyUSB0` on Linux, `COM3` on Windows).
 
 > ⚠️ **Disconnect mains power at the breaker before opening the indoor unit.** The S21 port itself is logic-level and isolated from mains, but everything around it inside the cabinet is not. If you're not comfortable working inside an AC indoor unit, have a qualified HVAC technician install the interface board for you and just plug into the S21 connector once it's accessible.
 
-### Flash with esptool
+### 4. Verify the firmware is running
 
-Requires [esptool](https://github.com/espressif/esptool) installed. On macOS/Linux: `pip install esptool`. On Windows: install via pip, or download the standalone binary from the releases page.
-
-Throughout these commands, replace:
-- `<PORT>` with your serial port (`/dev/cu.usbserial-XXXX` on macOS, `/dev/ttyUSB0` on Linux, `COM3` on Windows)
-- `<VERSION>` with the firmware release version (e.g. `v1.0.0`)
-
-**Identify the chip and read the MAC address:**
-
-```bash
-esptool.py --chip esp32c6 --port <PORT> --baud 460800 chip_id
-```
-
-**Flash the firmware:**
-
-```bash
-esptool.py --chip esp32c6 --port <PORT> --baud 460800 \
-  write_flash 0x0 daikin-s21-matter-<VERSION>.bin
-```
-
-**Erase flash (if you want to fully reset before re-flashing):**
-
-```bash
-esptool.py --chip esp32c6 --port <PORT> --baud 460800 erase_flash
-```
-
-After flashing, power-cycle the ESP32. The device boots into BLE commissioning mode and is ready to be added to your smart home ecosystem.
-
-### Flash with ESPConnect
-
-ESPConnect is a browser-based ESP32 flashing tool built on Web Serial. No installation required — works in Chrome, Edge, or any Chromium-based browser on macOS, Windows, and Linux.
-
-1. Connect the ESP32-C6 to your computer via USB.
-2. Open [ESPConnect](https://thelastoutpostworkshop.github.io/microcontroller_devkit/espconnect/) in your browser.
-3. Click **Connect** and select your USB serial port.
-4. Click **Flash Tools** → **Flash Firmware**.
-5. Select the latest release `.bin` from your downloads.
-6. Set flash offset to `0x0`, check **Erase entire flash before writing**, click **Flash**.
-7. Power-cycle the ESP32 to boot the new firmware.
-
-### Verify the firmware is running
-
-After flashing, open a serial monitor at 115200 baud:
-
-- **macOS / Linux CLI:** `screen /dev/cu.usbserial-XXXX 115200` or `idf.py -p /dev/cu.usbserial-XXXX monitor` if you have ESP-IDF installed
-- **Windows:** [PuTTY](https://putty.org/) configured for Serial at 115200 baud
-- **VS Code:** the Serial Monitor extension
-
-You should see boot logs followed by:
+In the `idf.py monitor` output, after the boot banner you should see:
 
 ```
 I (xxxx) app_main: Room Air Conditioner created with endpoint_id 1
@@ -199,9 +209,7 @@ I (xxxx) app_main: Powerful plug-in unit created with endpoint_id 2
 I (xxxx) app_main: Commissioning window opened
 ```
 
-This confirms Matter is initialized and the device is advertising for commissioning.
-
----
+This confirms Matter is initialized and the device is advertising for commissioning over BLE. Exit the monitor with `Ctrl+]`.
 
 ## Commissioning
 
@@ -258,45 +266,9 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 
 ---
 
-## Building from Source
+## Customizing the device name
 
-<details>
-<summary>Build instructions</summary>
-
-Throughout these commands, replace:
-- `<VERSION>` with the firmware release version (e.g. `v1.0.0`)
-
-**Requirements:**
-- ESP-IDF v5.3.2 or newer
-- ESP-Matter (latest)
-- macOS or Linux
-
-```bash
-git clone https://github.com/cptmeme/ESP-Matter-Daikin-S21.git
-cd ESP-Matter-Daikin-S21/Thermostat_Daikin
-
-# Source from wherever you installed esp-idf and esp-matter.
-source ~/esp/esp-idf/export.sh
-source ~/esp/esp-matter/export.sh
-
-idf.py set-target esp32c6
-idf.py build
-```
-
-Merge bin files for distribution:
-
-```bash
-esptool.py --chip esp32c6 merge_bin \
-  -o daikin-s21-matter-<VERSION>.bin \
-  --flash_mode dio \
-  --flash_size 4MB \
-  0x0     build/bootloader/bootloader.bin \
-  0x10000 build/partition_table/partition-table.bin \
-  0x17000 build/ota_data_initial.bin \
-  0x20000 build/thermostat.bin
-```
-
-To customize the device name shown in your home app, edit [`main/CHIPProjectConfig.h`](main/CHIPProjectConfig.h) before building:
+To change the manufacturer / model / default name shown in your home app, edit [`main/CHIPProjectConfig.h`](main/CHIPProjectConfig.h) before building:
 
 ```c
 #define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME   "Daikin"
@@ -304,7 +276,7 @@ To customize the device name shown in your home app, edit [`main/CHIPProjectConf
 #define CHIP_DEVICE_CONFIG_DEFAULT_NODE_LABEL   "Daikin Thermostat"
 ```
 
-</details>
+Apple Home, Google Home, and Alexa display these in the device's settings page. Changing them after the device is already commissioned won't update existing controllers — you'll need to factory reset and re-commission.
 
 ---
 
@@ -341,9 +313,7 @@ Open a [GitHub issue](../../issues/new) with:
 - **What happened:** What you expected, what actually occurred, and steps to reproduce
 - **Logs:** Serial monitor output at 115200 baud, especially anything around the failure point
 
-If your device commissions but the AC never updates state, the most likely cause is the S21 interface — wrong wiring, wrong connector type (Type A vs B), or a custom level-shifter circuit that doesn't bias the line correctly. Verify by trying with the [included PCB](../Custom%20PCB%20esp32c6/) or a [Faikout](https://codeberg.org/RevK/ESP32-Faikout) board, both of which are known-good.
-
-Firmware filename convention: `daikin-s21-matter-{version}.bin`
+If your device commissions but the AC never updates state, the most likely cause is the S21 interface — wrong wiring, wrong connector type (Type A vs B), the wrong GPIO pins compiled in (check [`main/app_driver.cpp`](main/app_driver.cpp)), or a custom level-shifter circuit that doesn't bias the line correctly. Verify by trying with the [included PCB](../Custom%20PCB%20esp32c6/) or a [Faikout](https://codeberg.org/RevK/ESP32-Faikout) board, both of which are known-good.
 
 ---
 
