@@ -76,12 +76,25 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 
 >*Fan speed can be controlled through the Eve app
 ---
+### Hardware
 
-## Hardware
-
-### Recommended path: use a known-good interface board
+**Recommended path: use a known-good interface board**
 
 You need *something* between the ESP32-C6 and the Daikin's S21 port — the S21 bus is 5V logic and the ESP32 is 3.3V. A standard bidirectional level shifter (e.g. BSS138-based, like Adafruit / SparkFun "logic level converter" boards) works fine for the data lines if wired correctly; that's the same approach the included PCB uses. The reason for recommending a known-good board over breadboarding is more about getting the power supply, connectors, and protection right than about the level shifting being especially tricky.
+
+> ⚠️ **Important — the included PCB inverts the S21 signals in hardware, and the firmware is written to match.** The bit-bang routines in `main/s21_driver.cpp` intentionally output and sample *inverted* logic levels (see `gpio_set_level(... bit ? 0 : 1)` at line 27 for TX and `if (level == 0) byte |= ...` at line 50 for RX). If you wire up a generic *non-inverting* level shifter, the AC will receive the wrong polarity and communication will silently fail. You then have two choices:
+>
+> - **Add a hardware inverter** in series with each S21 line (single transistor or a hex inverter IC like 74HC04), or
+> - **Edit the firmware** to remove the inversion — flip the four `bit ? 0 : 1` / `parity ? 0 : 1` writes and the `level == 0` read in `main/s21_driver.cpp`.
+>
+> If you're using the included PCB, a Faikout, or any other interface that expects inverted-polarity drive, leave the firmware alone — it's already correct.
+
+Two options that are known to work end-to-end:
+
+1. **The reference PCB included in this repo** — see the `Custom PCB esp32c6/` folder. KiCad project + BOM. Built around an WT0132C6-S5, a BSS138 for level shifting, and a JST EH 5-way for the S21 connection. **Thread + Wi-Fi capable** thanks to the C6's 802.15.4 radio. *Note: This board does not feature an onboard USB port. Flashing is done via exposed `RX0` and `TX0` headers using an external USB-to-Serial adapter, and the board is powered via a wide-input `V_in` pin (accepting 4V to 36V).*
+2. **A RevK ESP32-Faikout board.** This firmware's S21 implementation is derived from RevK's Faikout project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikout's). 
+
+If you want to roll your own interface, use the included PCB as a reference rather than starting from scratch.
 
 > ⚠️ **Important — the included PCB inverts the S21 signals in hardware, and the firmware is written to match.** The bit-bang routines in [`main/s21_driver.cpp`](Thermostat_Daikin/main/s21_driver.cpp) intentionally output and sample *inverted* logic levels (see `gpio_set_level(... bit ? 0 : 1)` at line 27 for TX and `if (level == 0) byte |= ...` at line 50 for RX). If you wire up a generic *non-inverting* level shifter, the AC will receive the wrong polarity and communication will silently fail. You then have two choices:
 >
@@ -164,6 +177,23 @@ If you're using a board where the buttons or LEDs are on different pins than the
 ## Building & Flashing
 
 > **Why no pre-built binaries?** This firmware needs the GPIO pin assignments compiled in (see above). Unless you're using the exact PCB in this repo, the pre-built binary would have wrong pins for your wiring and either silently fail to talk to the AC or behave unpredictably. So you build from source.
+
+### Hardware setup for flashing
+
+Because the included PCB does not have an onboard USB port, you will need a USB-to-Serial (UART) adapter (like an FTDI or CH340 board) to flash the ESP32-C6.
+
+> ⚠️ **CRITICAL: 3.3V Logic vs. 5V Power**
+> The ESP32-C6 requires **3.3V logic** on its `RX0` and `TX0` pins. Applying 5V data signals will permanently damage the chip. However, the board itself must be powered with at least 4V via the `V_in` pin so the onboard step-down converter can function.
+> 
+> **You must use a UART adapter set to 3.3V logic, but use a 5V pin for power.** Many standard FTDI adapters have a jumper or switch to set the TX/RX logic levels to 3.3V while still exposing a dedicated 5V VCC pin. Do not use a 3.3V power source for `V_in`.
+
+**Wiring your UART adapter:**
+* **TX** on adapter (3.3V logic) ➔ **RX0** on PCB
+* **RX** on adapter (3.3V logic) ➔ **TX0** on PCB
+* **GND** on adapter ➔ **GND** on PCB
+* **5V** on adapter (Power) ➔ **V_in** on PCB 
+
+Make sure to put your ESP32-C6 into **Download Mode** before flashing (typically by holding the BOOT button/pin low while pulling the EN Reset pin low, then releasing EN, then releasing BOOT).
 
 ### 1. Install ESP-IDF and ESP-Matter
 
