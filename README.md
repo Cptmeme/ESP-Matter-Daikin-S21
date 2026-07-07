@@ -55,8 +55,10 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 - ✅ Power, Mode (Heat/Cool/Auto/Off), Setpoint, Current Temperature
 - ✅ Fan speed (Low/Med/High/Auto + percent slider)
 - ✅ Powerful mode as a separate switchable endpoint
+- ✅ Live power draw (W) + lifetime energy (kWh) on S21 units that report it — surfaced via Matter Electrical Power/Energy Measurement clusters (Home Assistant displays them and can feed its Energy dashboard)
 - ✅ Two-way state sync — adjusting on the Daikin remote updates your home app within ~2 seconds
 - ✅ Factory reset via long press on the onboard button
+- ✅ OTA-ready — dual OTA partitions with bootloader app-rollback for safe over-the-air updates (via a Matter OTA provider)
 
 > **Fan speed visibility note:** Apple Home and Google Home (on IOS) currently *do not render* the fan slider on their AC tile, even when the firmware correctly advertises it. Home Assistant shows it. This is a controller-side UI limitation, not a firmware bug — the FanControl cluster is correctly registered and writable from any Matter controller that chooses to surface it.
 
@@ -72,9 +74,9 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 | Google Home | ✅ (no fan speed control on IOS)|
 | Alexa | Untested |
 | Home Assistant | ✅ |
-| SmartThings | ✅ (no powerful mode) |
+| SmartThings | Untested |
 
->*Fan speed can be controlled through the Eve app
+>*Fan speed can be controlled through the Eve app or automations in the home app
 ---
 ### Hardware
 
@@ -201,13 +203,41 @@ Follow Espressif's official setup: **[Getting the ESP-Matter Repositories](https
 
 ```bash
 mkdir -p ~/esp && cd ~/esp
-git clone --recursive https://github.com/espressif/esp-idf.git
+git clone -b v5.4.1 --recursive https://github.com/espressif/esp-idf.git
 cd esp-idf && ./install.sh esp32c6 && cd ..
-git clone --depth 1 https://github.com/espressif/esp-matter.git
+git clone -b release/v1.5 --depth 1 https://github.com/espressif/esp-matter.git
 cd esp-matter && ./install.sh && cd ..
 ```
 
-ESP-IDF v5.3.2 or newer is required. ESP-Matter follows IDF closely; pin a compatible release tag if you hit version mismatches.
+**Versions.** This firmware is built against **ESP-Matter v1.5**. Its clean, officially-supported pairing is **ESP-IDF v5.4.1** — with that combo the build "just works" apart from the optional cosmetic patch below. **ESP-IDF v5.5.x also builds, but requires the first SDK patch below** (its `@`-response-file compiler flags otherwise break connectedhomeip's GN argument generation).
+
+### 1a. Apply the ESP-Matter SDK patches
+
+Two small fixes are needed **in the ESP-Matter SDK itself** — they live under `~/esp/esp-matter/…`, *outside this repo*, so apply them after cloning esp-matter (and re-apply if you ever update or re-install esp-matter):
+
+**Patch 1 — GN build fix (required on ESP-IDF 5.5.x; not needed on 5.4.1).**
+Without it, the build aborts with `ERROR at build arg file … Invalid token`. IDF 5.5 puts flags such as `-march` into a GCC `@response-file`, and connectedhomeip's `create_args_gn.py` wraps the whole `@"…"` token in quotes, which GN can't parse. Edit
+`connectedhomeip/connectedhomeip/config/esp32/components/chip/create_args_gn.py` — immediately after the line `compile_flags = compile_command.split()[1:-4]`, expand any `@`-file back into real flags:
+
+```python
+expanded = []
+for f in compile_flags:
+    if f.startswith('@'):
+        try:
+            with open(f[1:].strip('"')) as rsp:
+                expanded.extend(rsp.read().split())
+            continue
+        except OSError:
+            pass
+    expanded.append(f)
+compile_flags = expanded
+```
+
+Then force a regen of the CHIP build: `rm -rf build/esp-idf/chip` and rebuild.
+
+**Patch 2 — thermostat bounds fix (cosmetic; optional).**
+esp-matter applies INT16 bounds to the INT8 `MinSetpointDeadBand` attribute, so every boot logs `Cannot set bounds … val type mismatch: expected 7, min 9, max 9`. It's harmless. To silence it, change the `MinSetpointDeadBand` case in
+`components/esp_matter/data_model/esp_matter_attribute_bounds.cpp` from `esp_matter_int16(0)` / `esp_matter_int16(1270)` to `esp_matter_int8(0)` / `esp_matter_int8(25)`.
 
 ### 2. Configure your environment in every new shell
 
@@ -286,8 +316,9 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 ---
 
 ## Known Issues / Roadmap
+- [x] **Energy reporting** — live power (W) + lifetime imported energy (kWh) via the Matter Electrical Power/Energy Measurement clusters, on S21 units that report it. Home Assistant shows both; the cooling/heating split is read but only logged (Matter carries a single imported/exported energy value, not a per-mode breakdown).
 - [ ] **Swing / louver position** — the S21 protocol supports it; no Matter wiring yet.
-- [ ] **Energy reporting** — Matter 1.3 added Power and Energy clusters, supported in some controllers (HA).
+- [ ] **X50A & CN_WIRED protocols (experimental)** — drivers for both are built in, with boot-time auto-detection (S21 → X50A → CN_WIRED). **Only S21 is hardware-verified.** X50A rides the same 2-wire UART front-end and should work with the right cable; CN_WIRED is a single-wire pulse protocol that needs a different connector/pull-up. Toggle them via `AC_ENABLE_X50A` / `AC_ENABLE_CNWIRED` in `Thermostat_Daikin/main/app_driver.cpp`.
 
 ---
 
@@ -307,7 +338,7 @@ Apple Home, Google Home, and Alexa display these in the device's settings page. 
 
 ## License
 
-GPL v2 — see [LICENSE](../LICENSE)
+GPL v2 — see [LICENSE](LICENSE)
 
 The S21 protocol implementation is derived from the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
