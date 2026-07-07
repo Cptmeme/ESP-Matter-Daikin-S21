@@ -64,6 +64,34 @@ DaikinS21::DaikinS21() {
     m_state.fan_speed = FAIKIN_FAN_AUTO;
     m_state.current_temp = 21.0;
     m_state.powerful = false;
+    m_state.power_w = -1;
+    m_state.energy_total_wh = -1;
+    m_state.energy_cool_wh = -1;
+    m_state.energy_heat_wh = -1;
+    m_energy_supported = true;
+    m_energy_miss = 0;
+}
+
+bool DaikinS21::IsConnected() const {
+    return s_connected;
+}
+
+void DaikinS21::Deinit() {
+    // Release the pins so another backend can probe them; force a fresh detect.
+    s_connected = false;
+    gpio_config_t in = {};
+    in.pin_bit_mask = (1ULL << s_tx_pin) | (1ULL << s_rx_pin);
+    in.mode = GPIO_MODE_INPUT;
+    in.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&in);
+}
+
+bool DaikinS21::Detect() {
+    // One handshake round. SendPacket() sets s_connected on a valid framed reply.
+    SendPacket('F', '8', NULL, 0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    SendPacket('F', '1', NULL, 0);
+    return s_connected;
 }
 
 esp_err_t DaikinS21::Init(int tx_pin, int rx_pin) {
@@ -136,6 +164,15 @@ esp_err_t DaikinS21::SendPacket(uint8_t cmd1, uint8_t cmd2, uint8_t *payload, in
             }
             else if (rx_buf[1] == 'G' && rx_buf[2] == '6') {
                  ParseSettingsG6(&rx_buf[3], rx_idx - 5);
+            }
+            else if (rx_buf[1] == 'G' && rx_buf[2] == 'X') {   // FX60 -> power
+                 ParsePowerGX(&rx_buf[3], rx_idx - 5);
+            }
+            else if (rx_buf[1] == 'G' && rx_buf[2] == 'M') {   // FM -> total energy
+                 ParseEnergyGM(&rx_buf[3], rx_idx - 5);
+            }
+            else if (rx_buf[1] == 'G' && rx_buf[2] == 'U') {   // FU04 -> cool/heat energy
+                 ParseEnergyGU(&rx_buf[3], rx_idx - 5);
             }
         }
     }
@@ -216,6 +253,45 @@ void DaikinS21::ParseSensorsSH(uint8_t *payload, int len) {
 void DaikinS21::ParseSensorsGH(uint8_t *p, int l) {}
 void DaikinS21::ParseSensorsG9(uint8_t *p, int l) {}
 
+// --- Energy monitoring (S21, decoded per RevK Faikout; best-guess units) ---
+
+void DaikinS21::ParsePowerGX(uint8_t *payload, int len) {
+    // FX60 reply: echoes "60" then a 4-hex value in 10W units.
+    if (len < 6 || payload[0] != '6' || payload[1] != '0') return;
+    int w = (int)s21_decode_hex_sensor(payload + 2) * 10;
+    if (m_state.power_w != w) {
+        m_state.power_w = w;
+        ESP_LOGI(TAG, "[ENERGY] Power: %d W", w);
+        if (m_callback) m_callback(&m_state);
+    }
+}
+
+void DaikinS21::ParseEnergyGM(uint8_t *payload, int len) {
+    // FM reply: 4-hex value in 100Wh units (lifetime total/outside energy).
+    if (len < 4) return;
+    int wh = (int)s21_decode_hex_sensor(payload) * 100;
+    if (m_state.energy_total_wh != wh) {
+        m_state.energy_total_wh = wh;
+        ESP_LOGI(TAG, "[ENERGY] Total: %d Wh", wh);
+        if (m_callback) m_callback(&m_state);
+    }
+}
+
+void DaikinS21::ParseEnergyGU(uint8_t *payload, int len) {
+    // FU04 reply: echoes "04" then two 4-hex values (cooling, heating) in 100Wh
+    // units; 0xFFFF = not available. (Decoding is "not fully understood" upstream.)
+    if (len < 18 || payload[0] != '0' || payload[1] != '4') return;
+    uint16_t c = s21_decode_hex_sensor(payload + 2);
+    uint16_t h = s21_decode_hex_sensor(payload + 10);
+    bool changed = false;
+    if (c != 0xFFFF && m_state.energy_cool_wh != (int)c * 100) { m_state.energy_cool_wh = (int)c * 100; changed = true; }
+    if (h != 0xFFFF && m_state.energy_heat_wh != (int)h * 100) { m_state.energy_heat_wh = (int)h * 100; changed = true; }
+    if (changed) {
+        ESP_LOGI(TAG, "[ENERGY] Cooling: %d Wh, Heating: %d Wh", m_state.energy_cool_wh, m_state.energy_heat_wh);
+        if (m_callback) m_callback(&m_state);
+    }
+}
+
 void DaikinS21::SendControlD1() {
     uint8_t payload[4];
     payload[0] = m_state.power ? '1' : '0';
@@ -263,6 +339,27 @@ void DaikinS21::Poll() {
     
     // Poll Sensor (RH -> SH)
     SendPacket('R', 'H', NULL, 0);
+
+    // Poll energy meters (S21 FX60 power, FM total Wh, FU04 cool/heat Wh).
+    // Many units don't support these; if the unit ignores/NAKs them for a few
+    // cycles, stop asking so we don't waste time on read timeouts.
+    if (m_energy_supported) {
+        uint8_t p60[2] = { '6', '0' };
+        uint8_t p04[2] = { '0', '4' };
+        bool any = false;
+        vTaskDelay(pdMS_TO_TICKS(300));
+        if (SendPacket('F', 'X', p60, 2) == ESP_OK) any = true;
+        vTaskDelay(pdMS_TO_TICKS(300));
+        if (SendPacket('F', 'M', NULL, 0) == ESP_OK) any = true;
+        vTaskDelay(pdMS_TO_TICKS(300));
+        if (SendPacket('F', 'U', p04, 2) == ESP_OK) any = true;
+        if (any) {
+            m_energy_miss = 0;
+        } else if (++m_energy_miss >= 3) {
+            m_energy_supported = false;
+            ESP_LOGW(TAG, "AC does not answer S21 energy queries (FX/FM/FU); energy polling disabled");
+        }
+    }
 }
 
 // Setters
@@ -270,8 +367,8 @@ void DaikinS21::SetPower(bool on) { if(m_state.power != on) { m_state.power = on
 void DaikinS21::SetMode(uint8_t mode) { if(m_state.mode != mode) { m_state.mode = mode; m_dirty = true; } }
 void DaikinS21::SetTemp(float temp) { if(fabs(m_state.target_temp - temp) > 0.1) { m_state.target_temp = temp; m_dirty = true; } }
 void DaikinS21::SetFan(uint8_t fan) { m_state.fan_speed = fan; m_dirty = true; }
-void DaikinS21::SetStateCallback(s21_state_change_cb_t cb) { m_callback = cb; }
-void DaikinS21::SetPowerful(bool on) { 
+// SetStateCallback is defined inline in s21_driver.h
+void DaikinS21::SetPowerful(bool on) {
     if(m_state.powerful != on) { 
         m_state.powerful = on; 
         m_powerful_dirty = true;

@@ -18,6 +18,15 @@
 #include <app/server/CommissioningWindowManager.h>
 
 #include "s21_driver.h"
+#include "x50a_driver.h"
+#include "cnwired_driver.h"
+#include "ac_manager.h"
+#include "power_measurement.h"
+
+// Set either to 0 to drop that protocol from auto-detect. Both are unverified
+// on this board (S21 is the tested one).
+#define AC_ENABLE_X50A    1
+#define AC_ENABLE_CNWIRED 1
 
 using namespace chip::app::Clusters;
 using namespace chip::app::Clusters::Thermostat;
@@ -26,7 +35,10 @@ using namespace esp_matter;
 static const char *TAG = "app_driver";
 extern uint16_t ac_endpoint_id;
 extern uint16_t powerful_endpoint_id;
-static DaikinS21 s21;
+static DaikinS21 s_s21;          // S21 protocol backend (verified)
+static DaikinX50A s_x50a;        // X50A protocol backend (experimental/unverified)
+static DaikinCNWired s_cnwired;  // CN_WIRED protocol backend (experimental/unverified)
+static ACManager s21;            // multi-protocol manager (keeps the 's21' name used throughout this file)
 
 static uint8_t s21_fan_to_matter(uint8_t s21_fan)
 {
@@ -103,16 +115,18 @@ static void AppDriverUpdateTask(intptr_t context)
     AppEventData *data = (AppEventData *)context;
     if (!data) return;
 
-    // Local temperature (Thermostat cluster, served via LocalTempAccessor).
+    // Local temperature (Thermostat cluster) — reported as a normal stored
+    // attribute. The old custom AttributeAccessInterface collided with the
+    // cluster's built-in handler ("Duplicate attribute override registration
+    // failed"), so it was rejected and LocalTemperature never updated.
     int16_t new_temp = FLOAT_TO_MATTER(data->state.current_temp);
+    esp_matter_attr_val_t val = esp_matter_nullable_int16(new_temp);
     if (g_current_temp_int != new_temp) {
         g_current_temp_int = new_temp;
-        MatterReportingAttributeChangeCallback(
-            ac_endpoint_id, Thermostat::Id, Thermostat::Attributes::LocalTemperature::Id);
+        esp_matter::attribute::report(ac_endpoint_id, Thermostat::Id, Thermostat::Attributes::LocalTemperature::Id, &val);
     }
 
     // Mirror the same reading on the TemperatureMeasurement cluster (used by the AC tile).
-    esp_matter_attr_val_t val = esp_matter_nullable_int16(new_temp);
     esp_matter::attribute::report(ac_endpoint_id, TemperatureMeasurement::Id, TemperatureMeasurement::Attributes::MeasuredValue::Id, &val);
 
     // Target temperature.
@@ -165,6 +179,21 @@ static void AppDriverUpdateTask(intptr_t context)
     if (powerful_endpoint_id != 0) {
         val = esp_matter_bool(data->state.powerful);
         esp_matter::attribute::report(powerful_endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id, &val);
+    }
+
+    // Real-time power draw -> ElectricalPowerMeasurement.ActivePower, via the
+    // cluster delegate (runs on the Matter thread; only S21 populates power_w,
+    // -1 = unknown). Cumulative energy (Wh) is still logged only for now.
+    if (data->state.power_w >= 0) {
+        power_measurement_set_watts(data->state.power_w);
+    }
+
+    // Lifetime total energy -> ElectricalEnergyMeasurement.CumulativeEnergyImported.
+    // Only send on change so we don't emit an energy event every poll cycle.
+    static int32_t s_last_energy_wh = -1;
+    if (data->state.energy_total_wh >= 0 && data->state.energy_total_wh != s_last_energy_wh) {
+        s_last_energy_wh = data->state.energy_total_wh;
+        energy_measurement_set_wh(ac_endpoint_id, data->state.energy_total_wh);
     }
 
     free(data);
@@ -264,8 +293,18 @@ esp_err_t app_driver_thermostat_set_defaults(uint16_t endpoint_id) { return ESP_
 
 app_driver_handle_t app_driver_thermostat_init()
 {
-    s21.Init(S21_TX_PIN, S21_RX_PIN);
+    // Register protocol backends in auto-detect (probe) order. S21 is the only
+    // one wired up today; CN_WIRED / X50A backends get AddBackend()'d here as
+    // they land, and the manager picks whichever the connected unit answers on.
+    s21.AddBackend(&s_s21);
+#if AC_ENABLE_X50A
+    s21.AddBackend(&s_x50a);      // probed after S21; UART 9600 8E1
+#endif
+#if AC_ENABLE_CNWIRED
+    s21.AddBackend(&s_cnwired);   // probed last; passive RMT pulse protocol (slow detect)
+#endif
     s21.SetStateCallback(s21_state_change_callback);
+    s21.Init(S21_TX_PIN, S21_RX_PIN);
     xTaskCreate(s21_poll_task, "s21_poll", 4096, NULL, 5, NULL);
     return (app_driver_handle_t)1;
 }
