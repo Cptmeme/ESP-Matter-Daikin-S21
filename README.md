@@ -109,7 +109,7 @@ If you want to roll your own interface, use the included PCB as a reference rath
 
 Two options that are known to work end-to-end:
 
-1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](Custom%20PCB%20esp32c6/) folder. KiCad project + BOM. Built around an ESP32-C6-MINI-1, a BSS138 for level shifting, USB-C for power/flashing, and a JST EH 5-way for the S21 connection. **Thread + Wi-Fi capable** thanks to the C6's 802.15.4 radio.
+1. **The reference PCB included in this repo** — see the [`Custom PCB esp32c6/`](Custom%20PCB%20esp32c6/) folder. KiCad project + BOM.
 2. **A RevK [ESP32-Faikout](https://codeberg.org/RevK/ESP32-Faikout) board.** This firmware's S21 implementation is derived from RevK's [Faikout]([https://codeberg.org/RevK/Faikin](https://codeberg.org/RevK/ESP32-Faikout)) project and the Faikout hardware will work with it (you'll need to reflash with this firmware instead of Faikout's). Faikout boards are sold by RevK and on Amazon UK — check the Faikout repo for current availability.
 
 > **⚠️ Faikout = Matter over Wi-Fi only (for now).** Current Faikout PCBs use ESP32 / ESP32-S3 chips, neither of which has an 802.15.4 radio. That means **if you flash this firmware onto a Faikout board, you will be running Matter over Wi-Fi, not Thread** — no Thread Border Router involvement. The firmware supports both transports, so it'll commission and work fine; you just lose Thread's mesh / low-power benefits. A future Faikout revision based on the ESP32-C6 (or similar) would change this — track the Faikout repo if that matters to you.
@@ -211,11 +211,11 @@ cd esp-matter && ./install.sh && cd ..
 
 **Versions.** This firmware is built against **ESP-Matter v1.5**. Its clean, officially-supported pairing is **ESP-IDF v5.4.1** — with that combo the build "just works" apart from the optional cosmetic patch below. **ESP-IDF v5.5.x also builds, but requires the first SDK patch below** (its `@`-response-file compiler flags otherwise break connectedhomeip's GN argument generation).
 
-### 1a. Apply the ESP-Matter SDK patches
+### 1a. Apply the ESP-Matter SDK patch
 
-Two small fixes are needed **in the ESP-Matter SDK itself** — they live under `~/esp/esp-matter/…`, *outside this repo*, so apply them after cloning esp-matter (and re-apply if you ever update or re-install esp-matter):
+A small fix is needed **in the ESP-Matter SDK itself** — it lives under `~/esp/esp-matter/…`, *outside this repo*, so apply it after cloning esp-matter (and re-apply if you ever update or re-install esp-matter):
 
-**Patch 1 — GN build fix (required on ESP-IDF 5.5.x; not needed on 5.4.1).**
+**Patch — GN build fix (required on ESP-IDF 5.5.x; not needed on 5.4.1).**
 Without it, the build aborts with `ERROR at build arg file … Invalid token`. IDF 5.5 puts flags such as `-march` into a GCC `@response-file`, and connectedhomeip's `create_args_gn.py` wraps the whole `@"…"` token in quotes, which GN can't parse. Edit
 `connectedhomeip/connectedhomeip/config/esp32/components/chip/create_args_gn.py` — immediately after the line `compile_flags = compile_command.split()[1:-4]`, expand any `@`-file back into real flags:
 
@@ -234,10 +234,6 @@ compile_flags = expanded
 ```
 
 Then force a regen of the CHIP build: `rm -rf build/esp-idf/chip` and rebuild.
-
-**Patch 2 — thermostat bounds fix (cosmetic; optional).**
-esp-matter applies INT16 bounds to the INT8 `MinSetpointDeadBand` attribute, so every boot logs `Cannot set bounds … val type mismatch: expected 7, min 9, max 9`. It's harmless. To silence it, change the `MinSetpointDeadBand` case in
-`components/esp_matter/data_model/esp_matter_attribute_bounds.cpp` from `esp_matter_int16(0)` / `esp_matter_int16(1270)` to `esp_matter_int8(0)` / `esp_matter_int8(25)`.
 
 ### 2. Configure your environment in every new shell
 
@@ -303,7 +299,7 @@ Setup code: 3497-011-2332
 
 Google Home, Alexa, and Home Assistant all support Matter commissioning via their respective apps and integrations. Use setup code `3497-011-2332` or the QR code above when prompted.
 
-**Home Assistant specifically renders the fan slider** for this device, which Apple Home and Google Home currently omit on their AC tiles.
+**Home Assistant specifically renders the fan slider** for this device, which Apple Home currently omits on their AC tile.
 
 </details>
 
@@ -318,7 +314,7 @@ Hold the onboard reset button (GPIO23 → GND) for **several seconds**. The devi
 ## Known Issues / Roadmap
 - [x] **Energy reporting** — live power (W) + lifetime imported energy (kWh) via the Matter Electrical Power/Energy Measurement clusters, on S21 units that report it. Home Assistant shows both; the cooling/heating split is read but only logged (Matter carries a single imported/exported energy value, not a per-mode breakdown).
 - [ ] **Swing / louver position** — the S21 protocol supports it; no Matter wiring yet.
-- [ ] **X50A & CN_WIRED protocols (experimental)** — drivers for both are built in, with boot-time auto-detection (S21 → X50A → CN_WIRED). **Only S21 is hardware-verified.** X50A rides the same 2-wire UART front-end and should work with the right cable; CN_WIRED is a single-wire pulse protocol that needs a different connector/pull-up. Toggle them via `AC_ENABLE_X50A` / `AC_ENABLE_CNWIRED` in `Thermostat_Daikin/main/app_driver.cpp`.
+- [x] **X50A & CN_WIRED protocols (experimental)** — drivers for both are built in, with boot-time auto-detection (S21 → X50A → CN_WIRED). **Only S21 is hardware-verified.** X50A rides the same 2-wire UART front-end and should work with the right cable; CN_WIRED is a single-wire pulse protocol that needs a different connector/pull-up. Toggle them via `AC_ENABLE_X50A` / `AC_ENABLE_CNWIRED` in `Thermostat_Daikin/main/app_driver.cpp`.
 
 ---
 
