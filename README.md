@@ -376,7 +376,7 @@ Daikin makes excellent air conditioners and a famously poor cloud experience. Th
 - Costs €100+ for a module that's a glorified ESP32 + their cloud
 - Routes every command through Daikin's servers
 - Has no native Matter, HomeKit, or local API
-- Stops working the moment Daikin retires the cloud product (and they have, repeatedly)
+- Stops working the moment Daikin retires the cloud product
 - Doesn't extend to multiple ecosystems — it's the Daikin app or nothing
 
 Meanwhile, most modern Daikin split units ship with an **S21 service port** sitting unused inside the indoor unit, exposing the full feature set of the AC over a documented(-ish) serial protocol. RevK's [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project did the hard work of reverse-engineering the protocol and shipping the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) hardware. This project bolts a Matter front-end onto that work — turning the same hardware into a fully local, cloud-free, multi-ecosystem Matter accessory that works directly with Apple Home, Google Home, Alexa, and Home Assistant. No app to install, no servers to depend on, no recurring fee.
@@ -393,7 +393,7 @@ This firmware speaks Matter directly. There's no middleware:
 
 - **Apple Home user without Home Assistant?** It just works. Commission directly from the Home app.
 - **Google Home or Alexa user?** Same — direct Matter commissioning, no third-party hub.
-- **Home Assistant user?** Also works — commission via HA's Matter integration. Bonus: HA renders the fan slider that Apple/Google omit.
+- **Home Assistant user?** Also works — commission via HA's Matter integration. Bonus: HA renders the fan slider that Apple omits.
 - **Multi-ecosystem household?** Multi-fabric commissioning lets the same device live in Apple Home, HA, and Google Home simultaneously.
 
 Matter is an industry-standard protocol — your AC works with the ecosystems you have today and remains compatible with new Matter ecosystems as they appear.
