@@ -1,6 +1,6 @@
 # Daikin S21 — Matter over Thread
 
-[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 [![Stars](https://img.shields.io/github/stars/cptmeme/ESP-Matter-Daikin-S21?style=social)](../../stargazers)
 
 > **⚠️ Disclaimer.** Opening your air conditioner exposes you to mains voltage and can damage the unit. Always disconnect mains power at the breaker before opening the indoor unit. Incorrect wiring on the S21 bus can damage the AC's controller board or the ESP32. You assume all responsibility for any damage, data loss, or device failure. This project is not affiliated with Daikin Industries, the Connectivity Standards Alliance, Espressif Systems, or RevK / the Faikin/Faikout project.
@@ -334,9 +334,9 @@ Apple Home, Google Home, and Alexa display these in the device's settings page. 
 
 ## License
 
-GPL v2 — see [LICENSE](LICENSE)
+GPL v3 — see [LICENSE](LICENSE)
 
-The S21 protocol implementation is derived from the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project by RevK, which is licensed under GPL v2 — that's why this firmware is also GPL v2. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
+The S21 protocol implementation is derived from the [Faikout](https://codeberg.org/RevK/ESP32-Faikout) project by RevK, which is licensed under GPL v3 — that's why this firmware is also GPL v3. Combined with portions of the [ESP-Matter](https://github.com/espressif/esp-matter) thermostat example by Espressif Systems (Apache 2.0, which is GPL-compatible in this direction).
 
 ---
 
