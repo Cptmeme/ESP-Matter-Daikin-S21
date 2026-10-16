@@ -6,6 +6,7 @@
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <esp_ota_ops.h>
+#include <esp_timer.h>
 
 #include <esp_matter.h>
 #include <esp_matter_console.h>
@@ -171,6 +172,56 @@ static void ensure_attribute(esp_matter::cluster_t *cluster, uint32_t attribute_
     }
 }
 
+// --- OTA ROLLBACK ---
+// With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE an image installed by OTA boots as "pending
+// verify". Keep it once it has run for a minute and is attached to the network (so it
+// can still receive the next update); otherwise go back to the previous image.
+static esp_timer_handle_t s_ota_verify_timer;
+
+static bool app_network_up()
+{
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+    if (chip::DeviceLayer::ConnectivityMgr().IsThreadAttached()) return true;
+#endif
+#if CHIP_DEVICE_CONFIG_ENABLE_WIFI_STATION
+    if (chip::DeviceLayer::ConnectivityMgr().IsWiFiStationConnected()) return true;
+#endif
+    return false;
+}
+
+static void app_ota_verify_check(intptr_t)
+{
+    int64_t uptime_s = esp_timer_get_time() / 1000000;
+    if (uptime_s >= 60 && app_network_up()) {
+        esp_timer_stop(s_ota_verify_timer);
+        esp_ota_mark_app_valid_cancel_rollback();
+        ESP_LOGI(TAG, "OTA: new firmware confirmed");
+    } else if (uptime_s >= 300) {
+        ESP_LOGE(TAG, "OTA: new firmware not on the network after 5 min, rolling back");
+        esp_ota_mark_app_invalid_rollback_and_reboot();
+    }
+}
+
+static void app_ota_verify_tick(void *)
+{
+    chip::DeviceLayer::PlatformMgr().ScheduleWork(app_ota_verify_check, 0);   // CHIP thread, stack locked
+}
+
+static void app_ota_verify_start()
+{
+    esp_ota_img_states_t state;
+    if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &state) != ESP_OK ||
+        state != ESP_OTA_IMG_PENDING_VERIFY) {
+        return;
+    }
+    ESP_LOGW(TAG, "OTA: running new firmware, confirming once it is on the network");
+    esp_timer_create_args_t args = {};
+    args.callback = app_ota_verify_tick;
+    args.name = "ota_verify";
+    esp_timer_create(&args, &s_ota_verify_timer);
+    esp_timer_start_periodic(s_ota_verify_timer, 10 * 1000000);
+}
+
 extern "C" void app_main()
 {
     esp_err_t err = ESP_OK;
@@ -298,6 +349,7 @@ extern "C" void app_main()
 
     err = esp_matter::start(app_event_cb);
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
+    app_ota_verify_start();
 
     app_driver_thermostat_set_defaults(ac_endpoint_id);
 
@@ -306,21 +358,6 @@ extern "C" void app_main()
     chip::DeviceLayer::PlatformMgr().ScheduleWork([](intptr_t ctx) {
         energy_measurement_init(static_cast<uint16_t>(ctx));
     }, static_cast<intptr_t>(ac_endpoint_id));
-
-#if CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
-    // An image applied over OTA boots in PENDING_VERIFY; we've reached a working
-    // state, so confirm it — otherwise the bootloader rolls back to the previous
-    // image on the next reboot. Harmless no-op on a normal USB-flashed boot.
-    {
-        const esp_partition_t *running = esp_ota_get_running_partition();
-        esp_ota_img_states_t ota_state;
-        if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK &&
-            ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
-            esp_ota_mark_app_valid_cancel_rollback();
-            ESP_LOGI(TAG, "OTA image confirmed valid (rollback cancelled)");
-        }
-    }
-#endif
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
     err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

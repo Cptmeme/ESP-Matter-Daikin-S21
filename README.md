@@ -24,6 +24,7 @@ Open source Matter firmware for Daikin split air conditioners with an S21 port. 
 - [Pin configuration](#pin-configuration)
 - [Building & Flashing](#building--flashing)
 - [Commissioning](#commissioning)
+- [Updating the Firmware](#updating-the-firmware)
 - [Factory Reset](#factory-reset)
 - [Known Issues / Roadmap](#known-issues--roadmap)
 - [Customizing the device name](#customizing-the-device-name)
@@ -302,6 +303,45 @@ Google Home, Alexa, and Home Assistant all support Matter commissioning via thei
 **Home Assistant specifically renders the fan slider** for this device, which Apple Home currently omits on their AC tile.
 
 </details>
+
+---
+
+## Updating the Firmware
+
+### Versions
+
+Bump all three for every release, or the device ignores the update. The build fails if the two numbers differ.
+
+* `PROJECT_VER` (e.g. `"1.1"`) and `PROJECT_VER_NUMBER` (e.g. `2`) in `Thermostat_Daikin/CMakeLists.txt`
+* `CONFIG_DEVICE_SOFTWARE_VERSION_NUMBER` in `Thermostat_Daikin/sdkconfig` / `sdkconfig.defaults.esp32c6` (same number)
+
+### Over serial
+
+A normal `idf.py -p <PORT> flash` over the UART adapter still works (see [Hardware setup for flashing](#hardware-setup-for-flashing)).
+
+### Over the air (Matter OTA over Thread)
+
+The build also produces `build/thermostat-ota.bin`, a Matter OTA image. Apple Home and Google Home only update certified devices, so you serve it yourself with the Matter SDK's host tools. Build them from the SDK with `./scripts/build/build_examples.py --target darwin-arm64-chip-tool --target darwin-arm64-ota-provider build`.
+
+One-time setup: in the Home app, turn on pairing mode for the AC, then add the provider and the AC to `chip-tool`'s fabric:
+
+```bash
+chip-tool pairing code 2 <setup-code-from-home-app>              # AC = node 2
+chip-ota-provider-app -f build/thermostat-ota.bin --discriminator 3841 --secured-device-port 5565 &
+chip-tool pairing onnetwork-long 1 20202021 3841                 # provider = node 1
+chip-tool accesscontrol write acl '[{"fabricIndex": 1, "privilege": 5, "authMode": 2, "subjects": [112233], "targets": null}, {"fabricIndex": 1, "privilege": 3, "authMode": 2, "subjects": null, "targets": [{"cluster": 41, "endpoint": null, "deviceType": null}]}]' 1 0
+```
+
+Each update (with the provider running and serving the new `thermostat-ota.bin`):
+
+```bash
+chip-tool otasoftwareupdaterequestor announce-otaprovider 1 0 2 0 2 0
+chip-tool basicinformation read software-version 2 0              # afterwards: the new number
+```
+
+The 1.75 MB image takes about a quarter of an hour over Thread. The AC then restarts into the new version and keeps it once it has run for a minute while attached to the Thread network. If it doesn't get there within 5 minutes, or crashes before that, the bootloader automatically returns to the previous version.
+
+Rollback needs a bootloader built with rollback enabled (this build, and earlier builds since energy monitoring was added), and the bootloader can only be written over serial. A device with an older bootloader still updates fine over the air, it just won't roll back.
 
 ---
 

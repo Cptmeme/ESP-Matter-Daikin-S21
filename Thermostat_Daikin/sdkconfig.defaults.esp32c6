@@ -35,6 +35,11 @@ CONFIG_ENABLE_EXTENDED_DISCOVERY=y
 
 # Enable OTA Requestor
 CONFIG_ENABLE_OTA_REQUESTOR=y
+# Build build/thermostat-ota.bin, and roll back an update that doesn't come up (see app_main.cpp)
+CONFIG_CHIP_OTA_IMAGE_BUILD=y
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+# Reported SoftwareVersion: must equal PROJECT_VER_NUMBER in CMakeLists.txt (the build checks)
+CONFIG_DEVICE_SOFTWARE_VERSION_NUMBER=2
 
 # Disable STA for ESP32C6
 CONFIG_ENABLE_WIFI_STATION=n
@@ -57,10 +62,3 @@ CONFIG_BSP_LEDS_NUM=1
 CONFIG_BSP_LED_TYPE_RGB=y
 CONFIG_BSP_LED_RGB_GPIO=8
 CONFIG_BSP_LED_RGB_BACKEND_RMT=y
-
-
-# OTA readiness (added): app rollback for safe OTA. The app self-confirms the
-# image in app_main via esp_ota_mark_app_valid_cancel_rollback().
-CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
-# Firmware version number (bump for each OTA release; this build = 1.0).
-CONFIG_DEVICE_SOFTWARE_VERSION_NUMBER=1
